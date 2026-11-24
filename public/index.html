@@ -84,11 +84,11 @@
                 Acak Kode
               </button>
             </div>
-            <div class="d-flex align-items-center gap-2">
-              <div class="border rounded bg-light overflow-hidden shadow-sm" style="height: 44px; display: flex; align-items: center; justify-content: center;">
-                <canvas id="captchaCanvas" width="150" height="44" style="cursor: pointer; display: block;" title="Klik gambar untuk ganti kode acak"></canvas>
+            <div class="d-flex align-items-center gap-2 flex-nowrap">
+              <div class="border rounded bg-light shadow-sm flex-shrink-0" style="width: 155px; min-width: 155px; max-width: 155px; height: 46px; display: flex; align-items: center; justify-content: center; overflow: hidden; background-color: #f8fafc;">
+                <canvas id="captchaCanvas" width="155" height="46" style="width: 155px; height: 46px; display: block; cursor: pointer;" title="Klik gambar untuk ganti kode acak"></canvas>
               </div>
-              <input type="text" id="captchaInput" class="form-control fw-bold text-uppercase" placeholder="Ketik kode" required maxlength="6" autocomplete="off" style="letter-spacing: 2px;">
+              <input type="text" id="captchaInput" class="form-control fw-bold text-uppercase" placeholder="Ketik kode" required maxlength="6" autocomplete="off" style="letter-spacing: 2px; height: 46px; min-width: 0; font-size: 15px;">
             </div>
             <div class="form-text small text-muted mt-1">Ketik 5 karakter di atas untuk verifikasi anti-bot.</div>
           </div>
@@ -311,7 +311,7 @@
       startLiveClock,
       syncMasterDataToFirestore,
       getAllAttendances
-    } from "./assets/js/app.js?v=22";
+    } from "./assets/js/app.js?v=23";
 
     // Setup autocomplete datalist
     const datalist = document.getElementById("studentDatalist");
@@ -370,15 +370,16 @@
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       const colors = ["#1e3a8a", "#0f766e", "#b45309", "#4338ca", "#0369a1", "#9a3412"];
+      const step = w / 6;
       for (let i = 0; i < text.length; i++) {
         const char = text[i];
         ctx.save();
-        const x = 22 + i * 26;
-        const y = h / 2 + (Math.random() * 4 - 2);
-        const angle = (Math.random() * 20 - 10) * Math.PI / 180;
+        const x = Math.round((i + 1) * step);
+        const y = Math.round(h / 2 + (Math.random() * 4 - 2));
+        const angle = (Math.random() * 14 - 7) * Math.PI / 180;
         ctx.translate(x, y);
         ctx.rotate(angle);
-        ctx.font = "bold 20px 'JetBrains Mono', monospace, sans-serif";
+        ctx.font = "bold 19px Consolas, 'Courier New', 'JetBrains Mono', monospace, sans-serif";
         ctx.fillStyle = colors[i % colors.length];
         ctx.fillText(char, 0, 0);
         ctx.restore();
