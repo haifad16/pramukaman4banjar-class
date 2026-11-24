@@ -243,9 +243,14 @@
       </div>
 
       <div id="trainerActions" style="display: none;">
-        <button id="btnOpenUploadModal" class="btn btn-light" style="font-weight: 700; font-size: 13px; padding: 10px 18px; color: #1e3a8a;">
-          ⚡ Upload Soal &amp; Kunci Jawaban (Khusus Pelatih)
-        </button>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button id="btnOpenDurationModal" class="btn btn-light" style="font-weight: 700; font-size: 13px; padding: 10px 18px; color: #047857; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+            ⏱️ Atur Batas Waktu CBT
+          </button>
+          <button id="btnOpenUploadModal" class="btn btn-light" style="font-weight: 700; font-size: 13px; padding: 10px 18px; color: #1e3a8a; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+            ⚡ Upload Naskah Soal &amp; Kunci
+          </button>
+        </div>
       </div>
     </div>
 
@@ -361,9 +366,14 @@
           <span style="color: var(--muted);">Jumlah Butir Soal:</span>
           <strong id="startQuestionCount" style="color: #2563eb;">30 Butir Pilihan Ganda (A - D)</strong>
         </div>
-        <div style="display: flex; justify-content: space-between; margin-bottom: 9px; padding-bottom: 8px; border-bottom: 1px dashed var(--line);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 9px; padding-bottom: 8px; border-bottom: 1px dashed var(--line);">
           <span style="color: var(--muted);">Batas Waktu Pengerjaan:</span>
-          <strong id="startDurationText" style="color: #dc2626;">⏱️ 60 Menit (Hitung Mundur)</strong>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <strong id="startDurationText" style="color: #dc2626;">⏱️ 60 Menit (Hitung Mundur)</strong>
+            <button type="button" id="btnEditDurationQuick" class="btn btn-sm btn-outline-danger py-0 px-2" style="font-size: 11px; font-weight: 700; border-radius: 12px; display: none;" title="Khusus Pelatih: Ubah Alokasi Waktu Ujian">
+              ✏️ Ubah Waktu
+            </button>
+          </div>
         </div>
         <div style="display: flex; justify-content: space-between; margin-bottom: 9px; padding-bottom: 8px; border-bottom: 1px dashed var(--line);">
           <span style="color: var(--muted);">Standar Kelulusan (KKM):</span>
@@ -509,6 +519,66 @@
       </div>
     </div>
 
+    <!-- MODAL ATUR BATAS WAKTU CBT (KHUSUS PELATIH) -->
+    <div class="modal-overlay" id="setDurationModal" style="display: none;">
+      <div class="modal-card-custom" style="max-width: 480px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line); padding-bottom: 12px; margin-bottom: 16px;">
+          <div>
+            <h3 style="font-size: 17px; font-weight: 800; margin: 0; color: var(--text-main);">
+              ⏱️ Atur Batas Waktu Ujian CBT
+            </h3>
+            <p style="font-size: 12px; color: var(--muted); margin: 2px 0 0;">
+              Khusus Pelatih: Ubah alokasi waktu hitung mundur untuk ujian yang dipilih.
+            </p>
+          </div>
+          <button type="button" id="btnCloseDurationModal" class="btn btn-light" style="padding: 4px 10px;">✕</button>
+        </div>
+
+        <form id="setDurationForm">
+          <div style="margin-bottom: 14px;">
+            <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px; color: var(--muted);">
+              Ujian yang Diatur:
+            </label>
+            <input type="text" id="targetDurationExamTitle" readonly class="form-control" style="width: 100%; padding: 8px 12px; background: #f8fafc; font-size: 13px; font-weight: 700; border: 1px solid var(--line); border-radius: 6px; color: #1e3a8a;">
+          </div>
+
+          <div style="margin-bottom: 16px;">
+            <label style="display: block; font-size: 12.5px; font-weight: 700; margin-bottom: 8px;">
+              Pilihan Cepat Alokasi Waktu:
+            </label>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button type="button" class="btn btn-light btn-sm duration-preset-btn" data-minutes="15" style="font-size: 12px; font-weight: 700; border-radius: 20px; padding: 5px 14px;">15 Menit</button>
+              <button type="button" class="btn btn-light btn-sm duration-preset-btn" data-minutes="30" style="font-size: 12px; font-weight: 700; border-radius: 20px; padding: 5px 14px;">30 Menit</button>
+              <button type="button" class="btn btn-light btn-sm duration-preset-btn" data-minutes="45" style="font-size: 12px; font-weight: 700; border-radius: 20px; padding: 5px 14px;">45 Menit</button>
+              <button type="button" class="btn btn-light btn-sm duration-preset-btn" data-minutes="60" style="font-size: 12px; font-weight: 700; border-radius: 20px; padding: 5px 14px;">60 Menit</button>
+              <button type="button" class="btn btn-light btn-sm duration-preset-btn" data-minutes="90" style="font-size: 12px; font-weight: 700; border-radius: 20px; padding: 5px 14px;">90 Menit</button>
+              <button type="button" class="btn btn-light btn-sm duration-preset-btn" data-minutes="120" style="font-size: 12px; font-weight: 700; border-radius: 20px; padding: 5px 14px;">120 Menit</button>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 18px;">
+            <label for="customDurationMinutesInput" style="display: block; font-size: 12.5px; font-weight: 700; margin-bottom: 6px;">
+              Durasi Waktu Pengerjaan (Menit):
+            </label>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <input type="number" id="customDurationMinutesInput" min="5" max="360" value="60" required class="form-control" style="max-width: 130px; font-size: 16px; font-weight: 800; padding: 8px 12px; text-align: center; border-radius: 6px; border: 1.5px solid var(--primary); color: #1e3a8a;">
+              <span style="font-size: 14px; font-weight: 700; color: var(--muted);">Menit</span>
+            </div>
+            <div style="font-size: 11.5px; color: var(--muted); margin-top: 6px;">
+              * Saat ujian dimulai, timer hitung mundur akan berjalan sesuai durasi ini dan otomatis mengumpulkan lembar jawaban saat waktu habis (00:00).
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--line); padding-top: 14px;">
+            <button type="button" id="btnCancelDurationModal" class="btn btn-light" style="font-size: 12.5px;">Batal</button>
+            <button type="submit" id="btnSaveDuration" class="btn btn-primary" style="font-size: 12.5px; font-weight: 700; padding: 8px 20px;">
+              ✓ Simpan Batas Waktu
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <!-- MODAL UPLOAD PINTAR SOAL & KUNCI JAWABAN (STYLE PKBM MANDIRI) -->
     <div class="modal-overlay" id="uploadExamModal">
       <div class="modal-card-custom">
@@ -530,6 +600,16 @@
               Judul Ujian / Kuis Pramuka:
             </label>
             <input type="text" id="newExamTitle" class="form-control" placeholder="Contoh: Kuis Keterampilan Sandi Morse & Semaphore" required style="width: 100%; padding: 9px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); font-size: 13px; font-weight: 600;">
+          </div>
+
+          <div style="margin-bottom: 12px;">
+            <label for="newExamDuration" style="display: block; font-size: 12.5px; font-weight: 700; margin-bottom: 4px;">
+              Batas Waktu Pengerjaan CBT (Menit):
+            </label>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <input type="number" id="newExamDuration" class="form-control" value="60" min="5" max="360" required style="width: 120px; padding: 8px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); font-size: 13px; font-weight: 700; text-align: center;">
+              <span style="font-size: 13px; color: var(--muted); font-weight: 600;">Menit (Hitung Mundur)</span>
+            </div>
           </div>
 
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
@@ -627,8 +707,9 @@ KUNCI JAWABAN:
       approveRemedialRequest,
       rejectRemedialRequest,
       getStudentRemedialStatus,
-      extractQuestionAndOptions
-    } from "./assets/js/app.js?v=22";
+      extractQuestionAndOptions,
+      updateExamDuration
+    } from "./assets/js/app.js?v=23";
 
     const user = requireAuth();
     if (user) {
@@ -804,6 +885,8 @@ KUNCI JAWABAN:
         document.getElementById("startQuestionCount").textContent = `${currentExam.questions.length} Butir Pilihan Ganda (A - D)`;
         const durText = document.getElementById("startDurationText");
         if (durText) durText.textContent = `⏱️ ${currentExam.durasi || 60} Menit (Hitung Mundur)`;
+        const btnEditDurQuick = document.getElementById("btnEditDurationQuick");
+        if (btnEditDurQuick) btnEditDurQuick.style.display = isPelatihOnly ? "inline-block" : "none";
       } else {
         document.getElementById("examWorkContainer").style.display = "block";
       }
@@ -1263,6 +1346,81 @@ KUNCI JAWABAN:
       window.scrollTo({ top: 0, behavior: "smooth" });
     };
 
+    // Modal Atur Waktu CBT (Khusus Pelatih)
+    const durationModal = document.getElementById("setDurationModal");
+    function openDurationSettingsModal() {
+      if (!isPelatihOnly) {
+        alert("Akses Terbatas: Hanya Pelatih Ekstrakurikuler yang berwenang mengatur alokasi batas waktu ujian CBT.");
+        return;
+      }
+      if (!currentExam) {
+        alert("Pilih paket soal ujian terlebih dahulu.");
+        return;
+      }
+      document.getElementById("targetDurationExamTitle").value = currentExam.judul;
+      const currentDur = currentExam.durasi || 60;
+      document.getElementById("customDurationMinutesInput").value = currentDur;
+      durationModal.style.display = "flex";
+    }
+
+    const btnOpenDur = document.getElementById("btnOpenDurationModal");
+    if (btnOpenDur) btnOpenDur.onclick = openDurationSettingsModal;
+
+    const btnEditDurQuick = document.getElementById("btnEditDurationQuick");
+    if (btnEditDurQuick) btnEditDurQuick.onclick = openDurationSettingsModal;
+
+    const btnCloseDur = document.getElementById("btnCloseDurationModal");
+    if (btnCloseDur) btnCloseDur.onclick = () => durationModal.style.display = "none";
+
+    const btnCancelDur = document.getElementById("btnCancelDurationModal");
+    if (btnCancelDur) btnCancelDur.onclick = () => durationModal.style.display = "none";
+
+    document.querySelectorAll(".duration-preset-btn").forEach(btn => {
+      btn.onclick = () => {
+        const mins = btn.getAttribute("data-minutes");
+        document.getElementById("customDurationMinutesInput").value = mins;
+      };
+    });
+
+    const setDurForm = document.getElementById("setDurationForm");
+    if (setDurForm) {
+      setDurForm.onsubmit = async (e) => {
+        e.preventDefault();
+        if (!isPelatihOnly || !currentExam) return;
+        const btnSave = document.getElementById("btnSaveDuration");
+        btnSave.disabled = true;
+        btnSave.textContent = "⏳ Menyimpan...";
+
+        try {
+          const newDur = parseInt(document.getElementById("customDurationMinutesInput").value, 10);
+          if (isNaN(newDur) || newDur < 5 || newDur > 360) {
+            alert("Harap masukkan durasi waktu antara 5 sampai 360 menit.");
+            return;
+          }
+
+          await updateExamDuration(currentExam.id, newDur);
+          currentExam.durasi = newDur;
+
+          // Perbarui UI Teks Durasi pada Kartu Konfirmasi
+          const durText = document.getElementById("startDurationText");
+          if (durText) durText.textContent = `⏱️ ${newDur} Menit (Hitung Mundur)`;
+
+          // Perbarui juga data di list allExams
+          const found = allExams.find(x => x.id === currentExam.id);
+          if (found) found.durasi = newDur;
+
+          alert(`⏱️ Berhasil! Batas waktu pengerjaan untuk "${currentExam.judul}" telah diubah menjadi ${newDur} Menit.`);
+          durationModal.style.display = "none";
+        } catch (err) {
+          console.error("Gagal ubah durasi ujian:", err);
+          alert("Gagal mengubah batas waktu: " + err.message);
+        } finally {
+          btnSave.disabled = false;
+          btnSave.textContent = "✓ Simpan Batas Waktu";
+        }
+      };
+    }
+
     // Modal Upload Pintar (Wewenang Khusus Pelatih)
     const modal = document.getElementById("uploadExamModal");
     document.getElementById("btnOpenUploadModal").onclick = () => {
@@ -1372,11 +1530,13 @@ KUNCI JAWABAN:
         }
 
         const title = (document.getElementById("newExamTitle").value || "Ujian Semester 1").trim();
+        const durationVal = parseInt(document.getElementById("newExamDuration")?.value, 10) || 60;
         const newExam = {
           id: `exam_${Date.now()}`,
           judul: title,
           mapel: "Kepramukaan & SKU",
           tingkat: "Penegak Bantara",
+          durasi: durationVal,
           questions: parsedData.questions
         };
 

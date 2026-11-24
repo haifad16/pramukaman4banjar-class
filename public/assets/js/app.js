@@ -859,6 +859,44 @@ export async function saveExam(examData) {
   return payload;
 }
 
+export async function updateExamDuration(examId, durationMinutes) {
+  const dur = parseInt(durationMinutes, 10);
+  if (isNaN(dur) || dur < 1) throw new Error("Durasi ujian tidak valid");
+
+  const nowIso = new Date().toISOString();
+
+  // 1. Simpan ke LocalStorage
+  try {
+    const custom = JSON.parse(localStorage.getItem("pramuka_custom_exams") || "[]");
+    const idx = custom.findIndex(e => e.id === examId);
+    if (idx >= 0) {
+      custom[idx].durasi = dur;
+      custom[idx].updatedAt = nowIso;
+      localStorage.setItem("pramuka_custom_exams", JSON.stringify(custom));
+    } else {
+      const def = DEFAULT_PRAMUKA_EXAMS.find(e => e.id === examId);
+      if (def) {
+        const payload = { ...def, durasi: dur, updatedAt: nowIso };
+        custom.push(payload);
+        localStorage.setItem("pramuka_custom_exams", JSON.stringify(custom));
+      }
+    }
+  } catch (e) {
+    console.warn("Gagal update durasi di localStorage:", e);
+  }
+
+  // 2. Sinkronisasi ke Cloud Firestore
+  try {
+    const docRef = doc(db, "exams", examId);
+    await fsTimeout(setDoc(docRef, { durasi: dur, updatedAt: serverTimestamp() }, { merge: true }), 2500);
+    console.log(`✓ Durasi ujian ${examId} berhasil diperbarui di Firestore: ${dur} menit`);
+  } catch (fsErr) {
+    console.warn("Gagal update durasi di Firestore:", fsErr);
+  }
+
+  return dur;
+}
+
 export async function getExams() {
   let custom = [];
   try {
