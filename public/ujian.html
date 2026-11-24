@@ -1,0 +1,1490 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Kuis CBT &amp; Asesmen Mandiri — Pramuka MAN 4 Banjar</title>
+  <link rel="icon" href="assets/icons/logo_pramuka_man4banjar.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <!-- Bootstrap 5.3 Framework -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+  <link rel="stylesheet" href="assets/css/style.css">
+  <style>
+    .exam-hero {
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 60%, #2563eb 100%);
+      color: #fff;
+      border-radius: var(--radius-lg);
+      padding: 24px 28px;
+      margin-bottom: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+      box-shadow: var(--shadow-lg);
+    }
+    .exam-selector-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      padding: 16px 20px;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .question-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      padding: 22px;
+      margin-bottom: 18px;
+      box-shadow: var(--shadow-xs);
+    }
+    .option-label {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: var(--bg);
+      border: 1.5px solid var(--line);
+      border-radius: var(--radius-md);
+      margin-bottom: 8px;
+      cursor: pointer;
+      font-size: 13.5px;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    .option-label:hover {
+      background: var(--primary-50);
+      border-color: var(--primary-light);
+      color: var(--primary);
+    }
+    .option-label.selected {
+      background: #eff6ff;
+      border-color: #2563eb;
+      color: #1e3a8a;
+      font-weight: 700;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+    }
+    .option-letter {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #fff;
+      border: 1.5px solid #cbd5e1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+    .option-label.selected .option-letter {
+      background: #2563eb;
+      color: #fff;
+      border-color: #2563eb;
+    }
+    .trophy-result-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      padding: 36px 28px;
+      text-align: center;
+      margin-bottom: 24px;
+      box-shadow: var(--shadow-lg);
+    }
+    .big-score-circle {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: #eff6ff;
+      border: 4px solid #2563eb;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px;
+    }
+    .big-score-val {
+      font-size: 42px;
+      font-weight: 900;
+      color: #1e3a8a;
+      line-height: 1;
+      font-family: var(--font-mono);
+    }
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.6);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      padding: 16px;
+    }
+    .modal-card-custom {
+      background: #fff;
+      border-radius: var(--radius-lg);
+      max-width: 680px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: 24px;
+      box-shadow: var(--shadow-lg);
+    }
+
+    /* ======================================================================
+       PROTEKSI KEAMANAN CBT: ANTI-SALIN & ANTI-SCREENSHOT (KHUSUS SISWA)
+       ====================================================================== */
+    .secure-exam-mode {
+      -webkit-user-select: none !important;
+      -moz-user-select: none !important;
+      -ms-user-select: none !important;
+      user-select: none !important;
+      -webkit-touch-callout: none !important;
+    }
+    .secure-exam-mode img {
+      pointer-events: none !important;
+      -webkit-user-drag: none !important;
+    }
+    .blur-exam-screen {
+      filter: blur(24px) grayscale(90%) !important;
+      transition: filter 0.2s ease;
+    }
+    .security-toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(120px);
+      background: #991b1b;
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 30px;
+      font-size: 13px;
+      font-weight: 700;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.35);
+      z-index: 999999;
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border: 1.5px solid #f87171;
+      pointer-events: none;
+    }
+    .security-toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+    .exam-watermark-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 5;
+      overflow: hidden;
+      opacity: 0.055;
+      display: flex;
+      flex-wrap: wrap;
+      align-content: flex-start;
+      gap: 70px 50px;
+      padding: 24px;
+      user-select: none;
+    }
+    .watermark-token {
+      transform: rotate(-25deg);
+      font-size: 13.5px;
+      font-weight: 800;
+      color: #0f172a;
+      white-space: nowrap;
+      letter-spacing: 1.5px;
+    }
+    @media print {
+      body * {
+        visibility: hidden !important;
+      }
+      body::before {
+        content: "Dilarang keras mencetak atau menyimpan dokumen naskah soal ujian resmi MAN 4 Banjar!";
+        visibility: visible !important;
+        display: block;
+        font-size: 26px;
+        font-weight: 900;
+        color: #dc2626;
+        text-align: center;
+        margin-top: 120px;
+        font-family: sans-serif;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Topbar Header -->
+  <header class="topbar" id="mainTopbar"></header>
+
+  <main class="container" style="max-width: 950px; margin: 24px auto; padding: 0 16px;">
+
+    <!-- Hero Banner -->
+    <div class="exam-hero">
+      <div>
+        <span class="badge" style="background: rgba(255,255,255,0.18); color: #fff; margin-bottom: 6px; font-size: 11px;">
+          ⚡ ASESMEN CBT MANDIRI PRAMUKA
+        </span>
+        <h1 style="font-size: 22px; font-weight: 800; margin: 4px 0 6px; letter-spacing: -0.3px;">
+          Kuis &amp; Ujian Online Terpadu
+        </h1>
+        <p style="font-size: 13px; color: #bfdbfe; margin: 0;">
+          Kerjakan kuis kepramukaan, nilai langsung keluar otomatis, dan terhubung ke buku rapor madrasah.
+        </p>
+      </div>
+
+      <div id="trainerActions" style="display: none;">
+        <button id="btnOpenUploadModal" class="btn btn-light" style="font-weight: 700; font-size: 13px; padding: 10px 18px; color: #1e3a8a;">
+          ⚡ Upload Soal &amp; Kunci Jawaban (Khusus Pelatih)
+        </button>
+      </div>
+    </div>
+
+    <!-- Pilihan Ujian / Kuis -->
+    <div class="exam-selector-card">
+      <div>
+        <label style="display: block; font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 4px;">
+          PILIH UJIAN / KUIS PRAMUKA:
+        </label>
+        <select id="examSelect" class="form-control" style="font-size: 13.5px; font-weight: 700; padding: 8px 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); min-width: 320px;">
+          <!-- Loaded via JS -->
+        </select>
+      </div>
+      <div style="font-size: 12px; color: var(--muted); text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+        <span id="examMetaInfo">Memuat paket soal...</span>
+        <span id="examSecurityBadge" style="display: none; align-items: center; gap: 6px; background: #ecfdf5; border: 1px solid #a7f3d0; color: #047857; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700;">
+          🛡️ Mode Ujian Aman: Anti-Salin &amp; Anti-Screenshot Aktif
+        </span>
+      </div>
+    </div>
+
+    <!-- HASIL UJIAN / TROPHY CARD (MUNCUL SETELAH SELESAI) -->
+    <div id="resultCard" class="trophy-result-card" style="display: none;">
+      <div style="font-size: 48px; margin-bottom: 8px;">🏆</div>
+      <span class="badge" style="background: #dcfce7; color: #15803d; font-size: 12px; font-weight: 700; margin-bottom: 12px;">
+        ✓ Ujian Berhasil Diselesaikan!
+      </span>
+      <h2 style="font-size: 24px; font-weight: 800; color: var(--text-main); margin: 8px 0 4px;" id="resExamTitle">
+        Hasil Asesmen Anda
+      </h2>
+      <p style="font-size: 13px; color: var(--muted); margin: 0 0 20px;" id="resStudentInfo">
+        Nama Siswa &bull; Kelas
+      </p>
+
+      <div class="big-score-circle" id="scoreCircle">
+        <span class="big-score-val" id="resScore">0</span>
+        <span style="font-size: 11px; font-weight: 700; color: var(--muted);">DARI 100</span>
+      </div>
+
+      <div style="max-width: 420px; margin: 0 auto 20px; background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius-md); padding: 14px 18px;">
+        <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px;">
+          <span>Jawaban Benar:</span>
+          <strong id="resCorrectDetail" style="color: #059669;">0 dari 0 Soal</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px;">
+          <span>Predikat Rapor:</span>
+          <span class="predikat-badge" id="resPredikatBadge">A</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 13px;">
+          <span>Status Rapor:</span>
+          <strong style="color: #2563eb;">Otomatis Tersimpan di Firebase ✓</strong>
+        </div>
+      </div>
+
+      <!-- KOTAK STATUS REMEDIAL & PERSETUJUAN ACC PELATIH -->
+      <div id="remedialPermitBox" style="max-width: 540px; margin: 0 auto 20px; text-align: left; background: #fffbeb; border: 1.5px solid #fde68a; border-radius: var(--radius-md); padding: 16px 20px;">
+        <div style="display: flex; align-items: flex-start; gap: 12px;">
+          <div style="font-size: 24px; line-height: 1;">📢</div>
+          <div style="flex: 1;">
+            <strong style="color: #92400e; font-size: 13.5px; display: block; margin-bottom: 3px;">
+              Ketentuan Remedial &amp; Ujian Ulang:
+            </strong>
+            <p style="margin: 0; font-size: 12.5px; color: #b45309; line-height: 1.5;">
+              Siswa hanya diperbolehkan mengerjakan ujian 1 kali. Jika nilai Anda rendah atau ingin perbaikan nilai, <b>Anda wajib meminta persetujuan (ACC) terlebih dahulu kepada Pelatih Ekstrakurikuler</b>.
+            </p>
+            <div id="remedialStatusArea" style="margin-top: 12px;">
+              <!-- Loaded by JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+        <button id="btnRetryExam" class="btn btn-light" disabled style="font-size: 13px; font-weight: 700; opacity: 0.6; cursor: not-allowed;">
+          🔒 Ulangi Kuis (Perlu ACC Pelatih)
+        </button>
+        <button id="btnReviewAnswers" class="btn btn-primary" style="font-size: 13px; font-weight: 700;">
+          📝 Tinjau Pembahasan Kunci Jawaban
+        </button>
+        <a href="classroom.html" class="btn btn-light" style="text-decoration: none; font-size: 13px;">
+          📚 Kembali ke Classroom
+        </a>
+      </div>
+
+      <!-- Review Jawaban Siswa vs Kunci -->
+      <div id="answersReviewContainer" style="display: none; margin-top: 28px; text-align: left;">
+        <h3 style="font-size: 16px; font-weight: 800; border-bottom: 2px solid var(--line); padding-bottom: 8px; margin-bottom: 16px;">
+          Pembahasan Kunci Jawaban Lengkap:
+        </h3>
+        <div id="reviewQuestionsList"></div>
+      </div>
+    </div>
+
+    <!-- KARTU KONFIRMASI ASESMEN & TOMBOL MULAI KERJAKAN -->
+    <div id="examStartCard" class="card" style="text-align: center; padding: 40px 24px; margin-bottom: 24px; border: 2px solid #bfdbfe; background: linear-gradient(180deg, #ffffff 0%, #f0f7ff 100%); border-radius: var(--radius-lg); box-shadow: var(--shadow-md);">
+      <div style="font-size: 54px; margin-bottom: 10px;">📝</div>
+      <span class="badge" style="background: #dbeafe; color: #1e40af; font-size: 12px; font-weight: 800; padding: 6px 16px; margin-bottom: 12px; letter-spacing: 0.5px;">
+        KONFIRMASI ASESMEN MANDIRI CBT
+      </span>
+      <h2 id="startExamTitle" style="font-size: 24px; font-weight: 900; color: var(--text-main); margin: 6px 0 10px;">
+        Ujian Semester 1
+      </h2>
+      <p id="startExamSubtitle" style="font-size: 13.5px; color: var(--muted); margin: 0 0 22px;">
+        Mata Pelajaran: Kepramukaan &bull; Total 30 Butir Pilihan Ganda
+      </p>
+
+      <div style="max-width: 480px; margin: 0 auto 26px; background: #fff; border: 1px solid var(--line); border-radius: var(--radius-md); padding: 18px 22px; text-align: left; font-size: 13px; box-shadow: var(--shadow-xs);">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 9px; padding-bottom: 8px; border-bottom: 1px dashed var(--line);">
+          <span style="color: var(--muted);">Nama Peserta:</span>
+          <strong id="startStudentName" style="color: #1e3a8a;">Ahmad Sauqi (X-PA)</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 9px; padding-bottom: 8px; border-bottom: 1px dashed var(--line);">
+          <span style="color: var(--muted);">Jumlah Butir Soal:</span>
+          <strong id="startQuestionCount" style="color: #2563eb;">30 Butir Pilihan Ganda (A - D)</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 9px; padding-bottom: 8px; border-bottom: 1px dashed var(--line);">
+          <span style="color: var(--muted);">Standar Kelulusan (KKM):</span>
+          <strong style="color: #059669;">75 Poin (Predikat B)</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+          <span style="color: var(--muted);">Kalkulasi Skor:</span>
+          <strong style="color: #d97706;">Nilai Langsung Keluar Otomatis ✓</strong>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
+        <button type="button" id="btnStartExamNow" class="btn btn-primary" style="padding: 14px 44px; font-size: 16px; font-weight: 800; border-radius: 30px; box-shadow: 0 8px 24px rgba(37, 99, 235, 0.35); cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
+          <span>▶</span> <span>Mulai Kerjakan Ujian Sekarang</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- CONTAINER PENGERJAAN SOAL -->
+    <div id="examWorkContainer" style="position: relative;">
+      <!-- Dynamic Watermark Overlay (Anti-Foto Layar HP) -->
+      <div id="examWatermarkOverlay" class="exam-watermark-overlay"></div>
+
+      <div id="questionsList">
+        <!-- Rendered by JS -->
+      </div>
+
+      <!-- Action Button Finish -->
+      <div style="text-align: center; margin: 24px 0 40px;">
+        <button id="btnFinishExam" class="btn btn-primary" style="padding: 14px 32px; font-size: 15px; font-weight: 800; border-radius: var(--radius-md); box-shadow: var(--shadow-lg);">
+          ✓ Selesai &amp; Hitung Nilai Sekarang
+        </button>
+      </div>
+    </div>
+
+    <!-- TABEL REKAP NILAI SISWA (UNTUK PELATIH / PEMBINA) -->
+    <div id="trainerRecapSection" style="display: none; margin-top: 40px;">
+      <h3 style="font-size: 17px; font-weight: 800; color: var(--text-main); margin-bottom: 14px;">
+        📊 Rekap Nilai Kuis Masuk Siswa (Live Cloud Firestore)
+      </h3>
+      <div class="card" style="padding: 0; overflow-x: auto;">
+        <table class="table" style="font-size: 12.5px; margin: 0;">
+          <thead>
+            <tr>
+              <th style="width: 45px; text-align: center;">No</th>
+              <th>Nama Siswa</th>
+              <th style="width: 80px; text-align: center;">Kelas</th>
+              <th>Judul Kuis</th>
+              <th style="width: 85px; text-align: center;">Nilai</th>
+              <th style="width: 75px; text-align: center;">Predikat</th>
+              <th style="width: 140px;">Waktu</th>
+            </tr>
+          </thead>
+          <tbody id="recapTableBody">
+            <!-- Loaded by JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ANTREAN PERSETUJUAN (ACC) REMEDIAL OLEH PELATIH -->
+    <div id="remedialTrainerSection" style="display: none; margin-top: 36px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+        <div>
+          <h3 style="font-size: 17px; font-weight: 800; color: var(--text-main); margin: 0;">
+            📬 Antrean Permohonan Remedial Siswa (ACC Pelatih)
+          </h3>
+          <p style="font-size: 12.5px; color: var(--muted); margin: 2px 0 0;">
+            Siswa yang nilainya rendah memerlukan persetujuan Anda sebelum dapat mengerjakan ulang ujian.
+          </p>
+        </div>
+        <span class="badge" style="background: #fee2e2; color: #b91c1c; font-weight: 800; font-size: 12px;" id="remedialPendingBadge">
+          0 Menunggu ACC
+        </span>
+      </div>
+
+      <div class="card" style="padding: 0; overflow-x: auto;">
+        <table class="table" style="font-size: 12.5px; margin: 0;">
+          <thead>
+            <tr>
+              <th style="width: 45px; text-align: center;">No</th>
+              <th>Nama Siswa</th>
+              <th style="width: 80px; text-align: center;">Kelas</th>
+              <th>Judul Ujian</th>
+              <th style="width: 85px; text-align: center;">Skor Lama</th>
+              <th>Alasan Siswa</th>
+              <th style="width: 140px; text-align: center;">Status ACC</th>
+              <th style="width: 170px; text-align: center;">Tindakan Pelatih</th>
+            </tr>
+          </thead>
+          <tbody id="remedialTrainerTableBody">
+            <!-- Loaded by JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- MODAL PENGAJUAN REMEDIAL OLEH SISWA -->
+    <div class="modal-overlay" id="requestRemedialModal">
+      <div class="modal-card-custom" style="max-width: 500px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line); padding-bottom: 12px; margin-bottom: 16px;">
+          <h3 style="font-size: 16px; font-weight: 800; margin: 0; color: var(--text-main);">
+            📢 Ajukan Permohonan Remedial ke Pelatih
+          </h3>
+          <button type="button" id="btnCloseRemedialModal" class="btn btn-light" style="padding: 4px 10px;">✕</button>
+        </div>
+
+        <form id="remedialRequestForm">
+          <div style="margin-bottom: 12px;">
+            <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Ujian yang Diajukan:</label>
+            <input type="text" id="remExamTitleInput" readonly class="form-control" style="width: 100%; padding: 8px 12px; background: #f8fafc; font-size: 12.5px; font-weight: 600; border: 1px solid var(--line); border-radius: 6px;">
+          </div>
+          <div style="margin-bottom: 12px;">
+            <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Nama Siswa &amp; Kelas:</label>
+            <input type="text" id="remStudentInfoInput" readonly class="form-control" style="width: 100%; padding: 8px 12px; background: #f8fafc; font-size: 12.5px; font-weight: 600; border: 1px solid var(--line); border-radius: 6px;">
+          </div>
+          <div style="margin-bottom: 16px;">
+            <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Tuliskan Alasan Ingin Remedial / Mengulang Ujian:</label>
+            <textarea id="remReasonInput" rows="3" required placeholder="Contoh: Saya ingin mempelajari kembali materi sandi morse agar memperoleh nilai di atas batas kelulusan..." style="width: 100%; padding: 10px; font-size: 12.5px; border: 1px solid var(--line); border-radius: 6px; font-family: inherit;"></textarea>
+          </div>
+          <div style="display: flex; justify-content: flex-end; gap: 8px;">
+            <button type="button" id="btnCancelRemedialModal" class="btn btn-light" style="font-size: 12.5px;">Batal</button>
+            <button type="submit" class="btn btn-primary" style="font-size: 12.5px; font-weight: 700; padding: 8px 18px;">
+              Kirim Permohonan ke Pelatih
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL UPLOAD PINTAR SOAL & KUNCI JAWABAN (STYLE PKBM MANDIRI) -->
+    <div class="modal-overlay" id="uploadExamModal">
+      <div class="modal-card-custom">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line); padding-bottom: 12px; margin-bottom: 16px;">
+          <div>
+            <h3 style="font-size: 17px; font-weight: 800; margin: 0; color: var(--text-main);">
+              ⚡ Upload Pintar Naskah Soal &amp; Kunci Jawaban
+            </h3>
+            <p style="font-size: 12px; color: var(--muted); margin: 2px 0 0;">
+              Sistem otomatis memisahkan nomor butir, opsi A-D, dan mengunci jawaban untuk CBT.
+            </p>
+          </div>
+          <button type="button" id="btnCloseUploadModal" class="btn btn-light" style="padding: 4px 10px;">✕</button>
+        </div>
+
+        <form id="uploadExamForm">
+          <div style="margin-bottom: 12px;">
+            <label style="display: block; font-size: 12.5px; font-weight: 700; margin-bottom: 4px;">
+              Judul Ujian / Kuis Pramuka:
+            </label>
+            <input type="text" id="newExamTitle" class="form-control" placeholder="Contoh: Kuis Keterampilan Sandi Morse & Semaphore" required style="width: 100%; padding: 9px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); font-size: 13px; font-weight: 600;">
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label style="font-size: 12.5px; font-weight: 700;">
+              Tempel Teks Naskah Soal &amp; Kunci Jawaban:
+            </label>
+            <button type="button" id="btnFillSamplePramuka" class="btn btn-light" style="font-size: 11.5px; padding: 4px 10px; color: var(--primary);">
+              📝 Gunakan Contoh Cepat Soal Pramuka
+            </button>
+          </div>
+
+          <textarea id="rawExamText" rows="9" placeholder="1. Pertanyaan...
+A. Pilihan 1
+B. Pilihan 2
+C. Pilihan 3
+D. Pilihan 4
+
+2. Pertanyaan...
+...
+
+KUNCI JAWABAN:
+1. A, 2. B, 3. C" required style="width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); font-size: 12.5px; font-family: var(--font-mono); line-height: 1.5;"></textarea>
+
+          <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
+            <button type="button" id="btnParseText" class="btn btn-light" style="font-size: 12.5px; font-weight: 700;">
+              🔍 Analisis &amp; Pisahkan Soal
+            </button>
+          </div>
+
+          <!-- Preview Analisis Soal -->
+          <div id="parsePreviewArea" style="display: none; margin-top: 14px; padding: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: var(--radius-sm);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <strong style="font-size: 13px; color: #047857;" id="parseStatusText">
+                ✓ 5 Butir Soal &bull; 100% Kunci Lengkap
+              </strong>
+            </div>
+            <div id="parsedQuestionsSummary" style="font-size: 12px; color: var(--text-body); max-height: 160px; overflow-y: auto;"></div>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; border-top: 1px solid var(--line); padding-top: 14px;">
+            <button type="button" id="btnCancelUpload" class="btn btn-light" style="font-size: 13px;">Batal</button>
+            <button type="submit" id="btnPublishExam" class="btn btn-primary" style="font-size: 13px; font-weight: 700; padding: 9px 20px;">
+              ✓ Simpan &amp; Terbitkan Soal Ujian ke Siswa
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Floating Toast Peringatan Keamanan -->
+    <div id="securityToast" class="security-toast">
+      <span style="font-size: 18px;">⚠️</span>
+      <span id="securityToastMsg">Tindakan ini dinonaktifkan demi integritas ujian!</span>
+    </div>
+
+    <!-- Tameng Anti-Screenshot & Anti-Pindah Tab (Shield Modal) -->
+    <div id="examCheatShield" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.96); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); z-index: 9999999; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: #fff; padding: 24px;">
+      <div style="width: 80px; height: 80px; border-radius: 50%; background: rgba(239, 68, 68, 0.2); border: 2px solid #ef4444; display: flex; align-items: center; justify-content: center; font-size: 40px; margin-bottom: 16px;">
+        🛡️
+      </div>
+      <span class="badge" style="background: #ef4444; color: #fff; font-size: 12px; font-weight: 800; padding: 6px 16px; margin-bottom: 12px; letter-spacing: 0.5px;">
+        PERINGATAN KEAMANAN CBT
+      </span>
+      <h2 style="font-size: 22px; font-weight: 900; color: #f87171; margin: 0 0 10px;" id="cheatShieldTitle">
+        Upaya Screenshot / Pindah Jendela Terdeteksi!
+      </h2>
+      <p style="font-size: 13.5px; color: #cbd5e1; max-width: 520px; line-height: 1.6; margin: 0 0 18px;" id="cheatShieldDesc">
+        Sistem mendeteksi upaya pengambilan tangkapan layar (screenshot), pindah tab browser, atau aplikasi pemotong layar. Tindakan ini dilarang selama asesmen berlangsung.
+      </p>
+      <div style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 10px 20px; margin-bottom: 22px; font-size: 13px; font-weight: 700; color: #fca5a5;">
+        Jumlah Peringatan Pelanggaran: <span id="cheatViolationCount" style="font-size: 16px; color: #fff; font-weight: 900;">1</span> Kali
+      </div>
+      <button type="button" id="btnDismissCheatShield" class="btn btn-primary" style="padding: 11px 28px; font-weight: 800; font-size: 14px; border-radius: 8px; background: #2563eb; border: none; cursor: pointer;">
+        Saya Mengerti &amp; Lanjutkan Ujian
+      </button>
+    </div>
+
+  </main>
+
+  <!-- Bootstrap 5.3 Bundle JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+
+  <script type="module">
+    import { 
+      getCurrentUser, 
+      requireAuth, 
+      renderTopbar, 
+      getExams, 
+      saveExam, 
+      parseExamText, 
+      saveExamResult,
+      getExamResults,
+      requestRemedial,
+      getAllRemedialRequests,
+      approveRemedialRequest,
+      rejectRemedialRequest,
+      getStudentRemedialStatus,
+      extractQuestionAndOptions
+    } from "./assets/js/app.js?v=21";
+
+    const user = requireAuth();
+    if (user) {
+      renderTopbar("ujian");
+    }
+
+    // Role check: HANYA PELATIH yang dapat mengupload soal ujian
+    const isPelatihOnly = user && (user.role === 'pelatih');
+    const canViewRecap = user && ['pelatih', 'pembina', 'admin'].includes(user.role);
+
+    if (isPelatihOnly) {
+      document.getElementById("trainerActions").style.display = "block";
+      document.getElementById("remedialTrainerSection").style.display = "block";
+      loadTrainerRemedialSection();
+    }
+
+    if (canViewRecap) {
+      document.getElementById("trainerRecapSection").style.display = "block";
+      loadTrainerRecap();
+    }
+
+    let allExams = [];
+    let currentExam = null;
+    let studentAnswers = {};
+    let parsedData = null;
+
+    // Load available exams
+    async function loadExamsList() {
+      allExams = await getExams();
+      const select = document.getElementById("examSelect");
+      select.innerHTML = "";
+
+      allExams.forEach(e => {
+        const opt = document.createElement("option");
+        opt.value = e.id;
+        opt.textContent = `${e.judul} (${e.questions ? e.questions.length : 0} Soal)`;
+        select.appendChild(opt);
+      });
+
+      if (allExams.length > 0) {
+        selectExam(allExams[0].id);
+      } else {
+        document.getElementById("examMetaInfo").textContent = "Belum ada paket soal aktif.";
+      }
+    }
+
+    async function selectExam(examId) {
+      currentExam = allExams.find(e => e.id === examId);
+      studentAnswers = {};
+
+      if (!currentExam) return;
+
+      document.getElementById("examMetaInfo").textContent = 
+        `Materi: ${currentExam.mapel || 'Pramuka'} • Total ${currentExam.questions.length} Butir Pilihan Ganda`;
+
+      // Cek apakah siswa sudah pernah mengerjakan ujian ini sebelumnya
+      if (!isPelatihOnly && user && user.role === 'siswa') {
+        const results = await getExamResults();
+        const prevRes = results.find(r => r.examId === examId && r.username === user.username);
+        const remReq = await getStudentRemedialStatus(examId, user.username);
+
+        // Jika sudah pernah mengerjakan dan BELUM di-ACC remedial oleh pelatih:
+        if (prevRes && (!remReq || remReq.status !== 'approved')) {
+          const startCard = document.getElementById("examStartCard");
+          if (startCard) startCard.style.display = "none";
+          document.getElementById("examWorkContainer").style.display = "none";
+          const resCard = document.getElementById("resultCard");
+          resCard.style.display = "block";
+
+          document.getElementById("resExamTitle").textContent = currentExam.judul;
+          document.getElementById("resStudentInfo").textContent = `${user.name} • ${user.role.toUpperCase()} (${user.kelas || 'Gudep'})`;
+          document.getElementById("resScore").textContent = prevRes.score;
+          document.getElementById("resCorrectDetail").textContent = `${prevRes.correctCount || 0} dari ${prevRes.totalQuestions || currentExam.questions.length} Soal Benar (${prevRes.score}%)`;
+
+          const badge = document.getElementById("resPredikatBadge");
+          const predikat = prevRes.score >= 85 ? "A" : (prevRes.score >= 75 ? "B" : (prevRes.score >= 65 ? "C" : "D"));
+          badge.className = `predikat-badge predikat-${predikat}`;
+          badge.textContent = predikat;
+
+          await updateStudentRemedialUI(prevRes.score);
+          return;
+        }
+      }
+
+      document.getElementById("resultCard").style.display = "none";
+      document.getElementById("examWorkContainer").style.display = "none";
+
+      // Tampilkan Kartu Konfirmasi Asesmen & Tombol Mulai Kerjakan
+      const startCard = document.getElementById("examStartCard");
+      if (startCard) {
+        startCard.style.display = "block";
+        document.getElementById("startExamTitle").textContent = currentExam.judul;
+        document.getElementById("startExamSubtitle").textContent = 
+          `Mata Pelajaran: ${currentExam.mapel || 'Kepramukaan'} • Total ${currentExam.questions.length} Butir Pilihan Ganda`;
+        document.getElementById("startStudentName").textContent = `${user ? user.name : 'Peserta'} (${user ? (user.kelas || 'Gudep') : ''})`;
+        document.getElementById("startQuestionCount").textContent = `${currentExam.questions.length} Butir Pilihan Ganda (A - D)`;
+      } else {
+        document.getElementById("examWorkContainer").style.display = "block";
+      }
+
+      renderQuestions();
+    }
+
+    // Tombol Mulai Kerjakan Ujian Sekarang
+    const btnStartExam = document.getElementById("btnStartExamNow");
+    if (btnStartExam) {
+      btnStartExam.onclick = () => {
+        const startCard = document.getElementById("examStartCard");
+        if (startCard) startCard.style.display = "none";
+
+        const work = document.getElementById("examWorkContainer");
+        work.style.display = "block";
+
+        // Aktifkan Mode Ujian Aman jika pengguna adalah siswa
+        if (user && user.role === 'siswa') {
+          if (document.body) document.body.classList.add("secure-exam-mode");
+          const secBadge = document.getElementById("examSecurityBadge");
+          if (secBadge) secBadge.style.display = "inline-flex";
+        }
+
+        work.scrollIntoView({ behavior: "smooth" });
+      };
+    }
+
+    document.getElementById("examSelect").addEventListener("change", (e) => {
+      selectExam(e.target.value);
+    });
+
+    // Render questions list
+    function renderQuestions() {
+      const container = document.getElementById("questionsList");
+      container.innerHTML = "";
+
+      currentExam.questions.forEach((q, idx) => {
+        // Otomatis ekstrak dan pisahkan opsi A, B, C, D dari pertanyaan
+        const parsedQ = extractQuestionAndOptions(q);
+        const qid = parsedQ.id || (idx + 1);
+
+        const card = document.createElement("div");
+        card.className = "question-card";
+        card.id = `q_card_${qid}`;
+
+        const opts = [
+          { letter: "A", text: parsedQ.opsi_a },
+          { letter: "B", text: parsedQ.opsi_b },
+          { letter: "C", text: parsedQ.opsi_c },
+          { letter: "D", text: parsedQ.opsi_d }
+        ].filter(o => o.text && o.text.trim());
+
+        const optsHtml = opts.map(o => `
+          <div class="option-label" data-qid="${qid}" data-opt="${o.letter}">
+            <div class="option-letter">${o.letter}</div>
+            <div style="flex: 1; font-weight: 600;">${o.text}</div>
+          </div>
+        `).join("");
+
+        card.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <span class="badge" style="background: #f1f5f9; color: #1e3a8a; font-weight: 800; font-size: 12px;">
+              SOAL #${idx + 1}
+            </span>
+            <span class="badge" style="background: #eff6ff; color: #2563eb; font-size: 11px;">
+              Pilihan Ganda
+            </span>
+          </div>
+
+          <p style="font-size: 15px; font-weight: 700; line-height: 1.6; color: var(--text-main); margin: 0 0 16px;">
+            ${parsedQ.pertanyaan}
+          </p>
+
+          <div class="options-group">
+            ${optsHtml}
+          </div>
+        `;
+
+        container.appendChild(card);
+      });
+
+      // Bind option clicks
+      document.querySelectorAll(".option-label").forEach(lbl => {
+        lbl.addEventListener("click", () => {
+          const qid = lbl.getAttribute("data-qid");
+          const opt = lbl.getAttribute("data-opt");
+
+          // Deselect siblings
+          document.querySelectorAll(`.option-label[data-qid="${qid}"]`).forEach(l => l.classList.remove("selected"));
+          lbl.classList.add("selected");
+
+          studentAnswers[qid] = opt;
+        });
+      });
+
+      // Pasang watermark identitas siswa dinamis (Anti-Foto HP)
+      const watermarkContainer = document.getElementById("examWatermarkOverlay");
+      if (watermarkContainer && user) {
+        watermarkContainer.innerHTML = "";
+        const tokenText = `${user.name} • ${user.kelas || 'Gudep'} • ${user.username}`;
+        for (let i = 0; i < 40; i++) {
+          const span = document.createElement("span");
+          span.className = "watermark-token";
+          span.textContent = tokenText;
+          watermarkContainer.appendChild(span);
+        }
+      }
+    }
+
+    // Finish & Calculate Score Immediately (Style PKBM Mandiri)
+    document.getElementById("btnFinishExam").addEventListener("click", async () => {
+      // Nonaktifkan proteksi seleksi setelah selesai mengumpulkan
+      if (document.body) document.body.classList.remove("secure-exam-mode");
+      const secBadgeFinish = document.getElementById("examSecurityBadge");
+      if (secBadgeFinish) secBadgeFinish.style.display = "none";
+
+      const totalQ = currentExam.questions.length;
+      const answeredCount = Object.keys(studentAnswers).length;
+
+      if (answeredCount < totalQ) {
+        if (!confirm(`Anda baru menjawab ${answeredCount} dari ${totalQ} soal. Yakin ingin mengumpulkan sekarang?`)) {
+          return;
+        }
+      }
+
+      // Hitung Jawaban Benar
+      let correct = 0;
+      currentExam.questions.forEach((q, idx) => {
+        const parsedQ = extractQuestionAndOptions(q);
+        const qid = parsedQ.id || (idx + 1);
+        const studentAns = (studentAnswers[qid] || "").toUpperCase();
+        const keyAns = (parsedQ.kunci || "").toUpperCase();
+        if (studentAns === keyAns) {
+          correct++;
+        }
+      });
+
+      const finalScore = Math.round((correct / totalQ) * 100);
+      let predikat = "D";
+      if (finalScore >= 85) predikat = "A";
+      else if (finalScore >= 75) predikat = "B";
+      else if (finalScore >= 65) predikat = "C";
+
+      // Tampilkan Hasil Asesmen Langsung
+      document.getElementById("examWorkContainer").style.display = "none";
+      const resCard = document.getElementById("resultCard");
+      resCard.style.display = "block";
+
+      document.getElementById("resExamTitle").textContent = currentExam.judul;
+      document.getElementById("resStudentInfo").textContent = `${user.name} • ${user.role.toUpperCase()} (${user.kelas || 'Gudep'})`;
+      document.getElementById("resScore").textContent = finalScore;
+      document.getElementById("resCorrectDetail").textContent = `${correct} dari ${totalQ} Soal Benar (${finalScore}%)`;
+
+      const badge = document.getElementById("resPredikatBadge");
+      badge.className = `predikat-badge predikat-${predikat}`;
+      badge.textContent = predikat;
+
+      // Warna lingkaran skor
+      const circle = document.getElementById("scoreCircle");
+      if (finalScore >= 85) circle.style.borderColor = "#059669";
+      else if (finalScore >= 75) circle.style.borderColor = "#2563eb";
+      else if (finalScore >= 65) circle.style.borderColor = "#d97706";
+      else circle.style.borderColor = "#dc2626";
+
+      // Render Review Pembahasan
+      renderAnswerReview();
+
+      // Simpan Nilai ke Cloud Firestore
+      await saveExamResult({
+        examId: currentExam.id,
+        examTitle: currentExam.judul,
+        username: user.username,
+        name: user.name,
+        kelas: user.kelas || "Gudep",
+        gender: user.gender || "L",
+        score: finalScore,
+        correctCount: correct,
+        totalQuestions: totalQ,
+        answers: studentAnswers
+      });
+
+      // Update Remedial ACC UI
+      await updateStudentRemedialUI(finalScore);
+
+      resCard.scrollIntoView({ behavior: "smooth" });
+
+      if (canViewRecap) {
+        loadTrainerRecap();
+      }
+      if (isPelatihOnly) {
+        loadTrainerRemedialSection();
+      }
+    });
+
+    let lastCompletedScore = 0;
+
+    async function updateStudentRemedialUI(score) {
+      lastCompletedScore = score;
+      const remArea = document.getElementById("remedialStatusArea");
+      const retryBtn = document.getElementById("btnRetryExam");
+
+      if (!isPelatihOnly && user && user.role === 'siswa') {
+        const remReq = await getStudentRemedialStatus(currentExam.id, user.username);
+
+        if (!remReq) {
+          const isBelowKKM = score < 75;
+          remArea.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+              <span style="font-size: 12px; font-weight: 700; color: ${isBelowKKM ? '#b91c1c' : '#15803d'};">
+                ${isBelowKKM ? `● Nilai Anda (${score}) di bawah KKM 75. Silakan minta izin remedial.` : `✓ Nilai Anda (${score}) telah lulus. Anda dapat meminta ACC remedial jika ingin nilai maksimal.`}
+              </span>
+              <button type="button" id="btnOpenRemedialReq" class="btn btn-primary" style="padding: 6px 14px; font-size: 12px; font-weight: 700;">
+                📢 Ajukan Permohonan ACC Remedial
+              </button>
+            </div>
+          `;
+          document.getElementById("btnOpenRemedialReq").onclick = openRemedialModal;
+          retryBtn.disabled = true;
+          retryBtn.style.opacity = "0.5";
+          retryBtn.style.cursor = "not-allowed";
+          retryBtn.className = "btn btn-light";
+          retryBtn.innerHTML = "🔒 Ulangi Kuis (Perlu ACC Pelatih)";
+        } else if (remReq.status === 'pending') {
+          remArea.innerHTML = `
+            <div style="padding: 10px 14px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; color: #1e40af; font-size: 12.5px;">
+              ⏳ <b>Permohonan Remedial Terkirim:</b> Sedang menunggu persetujuan (ACC) dari Pelatih Ekstrakurikuler (Alasan: "<i>${remReq.reason}</i>").
+            </div>
+          `;
+          retryBtn.disabled = true;
+          retryBtn.style.opacity = "0.5";
+          retryBtn.style.cursor = "not-allowed";
+          retryBtn.className = "btn btn-light";
+          retryBtn.innerHTML = "⏳ Menunggu ACC Pelatih...";
+        } else if (remReq.status === 'approved') {
+          remArea.innerHTML = `
+            <div style="padding: 10px 14px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 6px; color: #047857; font-size: 12.5px;">
+              🎉 <b>Persetujuan (ACC) DIBERIKAN oleh ${remReq.approvedBy}!</b> Anda sekarang diizinkan untuk mengerjakan kuis remedial ini kembali sebanyak 1 kali.
+            </div>
+          `;
+          retryBtn.disabled = false;
+          retryBtn.style.opacity = "1";
+          retryBtn.style.cursor = "pointer";
+          retryBtn.className = "btn btn-primary";
+          retryBtn.innerHTML = "▶ Mulai Ujian Remedial Sekarang";
+        } else if (remReq.status === 'rejected') {
+          remArea.innerHTML = `
+            <div style="padding: 10px 14px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; color: #b91c1c; font-size: 12px;">
+              ✕ <b>Permohonan Remedial Ditolak</b> oleh ${remReq.rejectedBy}: "<i>${remReq.rejectionNote || 'Nilai sudah mencukupi batas kelulusan.'}</i>".
+            </div>
+          `;
+          retryBtn.disabled = true;
+          retryBtn.style.opacity = "0.5";
+          retryBtn.style.cursor = "not-allowed";
+          retryBtn.className = "btn btn-light";
+          retryBtn.innerHTML = "🔒 Remedial Ditolak";
+        }
+      } else {
+        // Mode Pelatih / Admin: bebas uji coba
+        retryBtn.disabled = false;
+        retryBtn.style.opacity = "1";
+        retryBtn.style.cursor = "pointer";
+        retryBtn.innerHTML = "🔄 Uji Coba Kuis Ini";
+        remArea.innerHTML = "<span style='font-size: 11.5px; color: #64748b;'>Mode Pelatih: Akses simulasi bebas tanpa perlu ACC.</span>";
+      }
+    }
+
+    // Modal Permohonan Remedial Siswa
+    const remModal = document.getElementById("requestRemedialModal");
+    function openRemedialModal() {
+      document.getElementById("remExamTitleInput").value = currentExam.judul;
+      document.getElementById("remStudentInfoInput").value = `${user.name} (${user.kelas || 'Gudep'}) - Skor Lama: ${lastCompletedScore}`;
+      document.getElementById("remReasonInput").value = "";
+      remModal.style.display = "flex";
+    }
+    document.getElementById("btnCloseRemedialModal").onclick = () => { remModal.style.display = "none"; };
+    document.getElementById("btnCancelRemedialModal").onclick = () => { remModal.style.display = "none"; };
+
+    document.getElementById("remedialRequestForm").onsubmit = async (e) => {
+      e.preventDefault();
+      const reason = document.getElementById("remReasonInput").value.trim();
+      if (!reason) {
+        alert("Silakan tuliskan alasan permohonan remedial Anda.");
+        return;
+      }
+
+      const btnSub = e.target.querySelector("button[type='submit']");
+      btnSub.disabled = true;
+      btnSub.textContent = "Mengirim...";
+
+      await requestRemedial({
+        examId: currentExam.id,
+        examTitle: currentExam.judul,
+        username: user.username,
+        name: user.name,
+        kelas: user.kelas || "Gudep",
+        previousScore: lastCompletedScore,
+        reason: reason
+      });
+
+      alert("🎉 Permohonan remedial berhasil dikirimkan ke Pelatih Ekstrakurikuler! Silakan tunggu ACC dari Pelatih.");
+      remModal.style.display = "none";
+      btnSub.disabled = false;
+      btnSub.textContent = "Kirim Permohonan ke Pelatih";
+
+      await updateStudentRemedialUI(lastCompletedScore);
+    };
+
+    // Load Antrean Remedial untuk Pelatih
+    async function loadTrainerRemedialSection() {
+      const tbody = document.getElementById("remedialTrainerTableBody");
+      const badge = document.getElementById("remedialPendingBadge");
+      const list = await getAllRemedialRequests();
+
+      const pendingList = list.filter(r => r.status === 'pending');
+      badge.textContent = `${pendingList.length} Menunggu ACC`;
+      badge.style.background = pendingList.length > 0 ? "#fee2e2" : "#ecfdf5";
+      badge.style.color = pendingList.length > 0 ? "#b91c1c" : "#047857";
+
+      if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--muted); padding: 18px;">Belum ada pengajuan remedial dari siswa.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = "";
+      list.forEach((r, idx) => {
+        const tr = document.createElement("tr");
+
+        let statusBadge = "";
+        let actionHtml = "";
+
+        if (r.status === 'pending') {
+          statusBadge = `<span class="badge" style="background: #fef3c7; color: #92400e; font-weight: 800;">⏳ Menunggu ACC</span>`;
+          actionHtml = `
+            <div style="display: flex; gap: 4px; justify-content: center;">
+              <button class="btn btn-primary btn-acc-req" data-id="${r.id}" style="padding: 5px 10px; font-size: 11px; font-weight: 700;">
+                ✓ ACC Ujian
+              </button>
+              <button class="btn btn-light btn-reject-req" data-id="${r.id}" style="padding: 5px 8px; font-size: 11px; color: #b91c1c;">
+                ✕ Tolak
+              </button>
+            </div>
+          `;
+        } else if (r.status === 'approved') {
+          statusBadge = `<span class="badge" style="background: #dcfce7; color: #15803d; font-weight: 800;">✓ Di-ACC (${r.approvedBy})</span>`;
+          actionHtml = `<span style="font-size: 11px; color: #059669; font-weight: 600;">Izin Aktif</span>`;
+        } else {
+          statusBadge = `<span class="badge" style="background: #f1f5f9; color: #475569; font-weight: 800;">✕ Ditolak</span>`;
+          actionHtml = `<span style="font-size: 11px; color: var(--muted);">${r.rejectionNote || 'Ditolak'}</span>`;
+        }
+
+        tr.innerHTML = `
+          <td style="text-align: center;">${idx + 1}</td>
+          <td style="font-weight: 700;">${r.name}</td>
+          <td style="text-align: center;">${r.kelas}</td>
+          <td>${r.examTitle}</td>
+          <td style="text-align: center; font-weight: 800; color: #dc2626;">${r.previousScore}</td>
+          <td>
+            <div style="font-style: italic; color: #334155; font-size: 12px;">"${r.reason}"</div>
+            <div style="font-size: 10.5px; color: var(--muted); margin-top: 2px;">${new Date(r.requestedAt).toLocaleString("id-ID")}</div>
+          </td>
+          <td style="text-align: center;">${statusBadge}</td>
+          <td style="text-align: center;">${actionHtml}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      // Bind ACC and Reject
+      tbody.querySelectorAll(".btn-acc-req").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          const reqId = btn.getAttribute("data-id");
+          const target = list.find(r => r.id === reqId);
+          if (!confirm(`Apakah Anda yakin ingin menyetujui (ACC) ujian remedial untuk:\n\nNama Siswa: ${target.name} (${target.kelas})\nUjian: ${target.examTitle}\n\nSetelah disetujui, siswa dapat mengerjakan kuis kembali.`)) {
+            return;
+          }
+          await approveRemedialRequest(reqId, user.name);
+          alert(`🎉 PERSETUJUAN BERHASIL!\nSiswa ${target.name} kini telah di-ACC untuk ujian remedial.`);
+          loadTrainerRemedialSection();
+        });
+      });
+
+      tbody.querySelectorAll(".btn-reject-req").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          const reqId = btn.getAttribute("data-id");
+          const target = list.find(r => r.id === reqId);
+          const note = prompt(`Tuliskan alasan penolakan remedial untuk ${target.name}:`, "Nilai sudah mencukupi batas kelulusan KKM.");
+          if (note === null) return;
+          await rejectRemedialRequest(reqId, user.name, note);
+          alert(`Permohonan remedial siswa ${target.name} telah ditolak.`);
+          loadTrainerRemedialSection();
+        });
+      });
+    }
+
+    function renderAnswerReview() {
+      const list = document.getElementById("reviewQuestionsList");
+      list.innerHTML = "";
+
+      currentExam.questions.forEach((q, idx) => {
+        const parsedQ = extractQuestionAndOptions(q);
+        const qid = parsedQ.id || (idx + 1);
+        const studentAns = (studentAnswers[qid] || "-").toUpperCase();
+        const keyAns = (parsedQ.kunci || "-").toUpperCase();
+        const isRight = (studentAns === keyAns);
+
+        const item = document.createElement("div");
+        item.style.padding = "12px 14px";
+        item.style.marginBottom = "10px";
+        item.style.borderRadius = "8px";
+        item.style.background = isRight ? "#ecfdf5" : "#fef2f2";
+        item.style.border = isRight ? "1px solid #a7f3d0" : "1px solid #fecaca";
+
+        item.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <strong style="font-size: 13px; color: ${isRight ? '#065f46' : '#991b1b'};">
+              #${idx + 1}. ${parsedQ.pertanyaan}
+            </strong>
+            <span class="badge" style="background: ${isRight ? '#dcfce7' : '#fee2e2'}; color: ${isRight ? '#15803d' : '#b91c1c'}; font-weight: 800;">
+              ${isRight ? '✓ BENAR' : '✗ SALAH'}
+            </span>
+          </div>
+          <div style="font-size: 12.5px; color: var(--text-body);">
+            Jawaban Anda: <b>${studentAns}</b> &bull; Kunci Jawaban: <b style="color: #059669;">${keyAns}</b>
+          </div>
+        `;
+        list.appendChild(item);
+      });
+    }
+
+    document.getElementById("btnReviewAnswers").onclick = () => {
+      const rev = document.getElementById("answersReviewContainer");
+      rev.style.display = rev.style.display === "none" ? "block" : "none";
+    };
+
+    document.getElementById("btnRetryExam").onclick = () => {
+      document.getElementById("resultCard").style.display = "none";
+      const startCard = document.getElementById("examStartCard");
+      if (startCard) startCard.style.display = "none";
+      document.getElementById("examWorkContainer").style.display = "block";
+      studentAnswers = {};
+      renderQuestions();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+
+    // Modal Upload Pintar (Wewenang Khusus Pelatih)
+    const modal = document.getElementById("uploadExamModal");
+    document.getElementById("btnOpenUploadModal").onclick = () => {
+      if (!user || user.role !== 'pelatih') {
+        alert("Akses Terbatas: Hanya Pelatih Ekstrakurikuler (M. Haifad Ilham & Aulia Ika Noorjannah) yang memiliki wewenang untuk mengunggah dan membuat soal ujian.");
+        return;
+      }
+      modal.style.display = "flex";
+    };
+    document.getElementById("btnCloseUploadModal").onclick = () => {
+      modal.style.display = "none";
+    };
+    document.getElementById("btnCancelUpload").onclick = () => {
+      modal.style.display = "none";
+    };
+
+    // Contoh cepat naskah soal pramuka
+    document.getElementById("btnFillSamplePramuka").onclick = () => {
+      document.getElementById("newExamTitle").value = "Penilaian Teori Kepramukaan & Sejarah Penegak";
+      document.getElementById("rawExamText").value = `1. Bapak Pandu Dunia yang mendirikan gerakan kepanduan pada tahun 1907 adalah...
+A. Lord Robert Baden Powell
+B. Sri Sultan Hamengkubuwono IX
+C. K.H. Agus Salim
+D. Jenderal Soedirman
+
+2. Lambang Gerakan Pramuka Indonesia adalah siluet tunas kelapa yang diciptakan oleh...
+A. H. Mutahar
+B. Soenardjo Atmodipuro
+C. W.R. Soepratman
+D. Sultan Hamengkubuwono IX
+
+3. Kode kehormatan bagi anggota Pramuka Penegak terdiri atas...
+A. Dwi Satya dan Dwi Darma
+B. Tri Satya dan Dasa Darma
+C. Pancasila dan UUD 1945
+D. Sandi Kotak dan Semaphore
+
+4. Simpul yang digunakan untuk mengikat leher binatang agar tidak terjerat adalah...
+A. Simpul Pangkal
+B. Simpul Jangkar
+C. Simpul Hidup
+D. Simpul Tiang
+
+5. Semboyan resmi pangkalan ambalan MAN 4 Banjar adalah...
+A. Al Ittihadu Asasun Najah • Become a Legend • Ahlul Haq
+B. Satyaku Kudarmakan Darmaku Kubaktikan
+C. Praja Muda Karana
+D. Ikhlas Bakti Bina Bangsa
+
+KUNCI JAWABAN:
+1. A, 2. B, 3. B, 4. D, 5. A`;
+    };
+
+    // Parser Action
+    document.getElementById("btnParseText").onclick = () => {
+      const raw = document.getElementById("rawExamText").value.trim();
+      if (!raw) {
+        alert("Silakan tempel teks naskah soal terlebih dahulu.");
+        return;
+      }
+
+      parsedData = parseExamText(raw);
+      if (!parsedData.questions || parsedData.questions.length === 0) {
+        alert("Tidak ada butir soal yang berhasil dideteksi. Pastikan nomor soal diawali dengan '1.', '2.', dst.");
+        return;
+      }
+
+      const previewArea = document.getElementById("parsePreviewArea");
+      previewArea.style.display = "block";
+      document.getElementById("parseStatusText").textContent = 
+        `✓ ${parsedData.questions.length} Butir Soal Berhasil Dibagi & 100% Kunci Lengkap Terdeteksi!`;
+
+      const summaryList = document.getElementById("parsedQuestionsSummary");
+      summaryList.innerHTML = parsedData.questions.map((q, idx) => `
+        <div style="padding: 4px 0; border-bottom: 1px dashed #cbd5e1;">
+          <b>#${idx + 1}.</b> ${q.pertanyaan.substring(0, 60)}... &bull; 
+          <span style="color: #059669; font-weight: bold;">Kunci: ${q.kunci}</span>
+        </div>
+      `).join("");
+    };
+
+    // Submit Publish Exam (Hanya Pelatih)
+    document.getElementById("uploadExamForm").onsubmit = async (e) => {
+      e.preventDefault();
+      const btnPublish = document.getElementById("btnPublishExam");
+      btnPublish.disabled = true;
+      btnPublish.textContent = "⏳ Menyimpan Soal Ujian...";
+
+      try {
+        if (!user || user.role !== 'pelatih') {
+          alert("Akses Ditolak: Hanya Pelatih Ekstrakurikuler yang dapat menerbitkan soal ujian.");
+          return;
+        }
+
+        const raw = document.getElementById("rawExamText").value.trim();
+        if (!raw) {
+          alert("Silakan tempelkan teks naskah soal terlebih dahulu.");
+          return;
+        }
+
+        // Selalu analisis teks terbaru dari textarea
+        parsedData = parseExamText(raw);
+
+        if (!parsedData || !parsedData.questions || parsedData.questions.length === 0) {
+          alert("Tidak ada butir soal yang berhasil dideteksi. Pastikan nomor soal diawali dengan '1.', '2.', dst.");
+          return;
+        }
+
+        const title = (document.getElementById("newExamTitle").value || "Ujian Semester 1").trim();
+        const newExam = {
+          id: `exam_${Date.now()}`,
+          judul: title,
+          mapel: "Kepramukaan & SKU",
+          tingkat: "Penegak Bantara",
+          questions: parsedData.questions
+        };
+
+        await saveExam(newExam);
+        alert(`🎉 Berhasil! Soal ujian "${title}" (${newExam.questions.length} Butir Soal) telah berhasil disimpan dan langsung aktif untuk seluruh siswa!`);
+        modal.style.display = "none";
+
+        await loadExamsList();
+        document.getElementById("examSelect").value = newExam.id;
+        await selectExam(newExam.id);
+
+      } catch (err) {
+        console.error("Gagal terbitkan ujian:", err);
+        alert("Terjadi kesalahan saat menyimpan soal: " + err.message);
+      } finally {
+        btnPublish.disabled = false;
+        btnPublish.textContent = "✓ Simpan & Terbitkan Soal Ujian ke Siswa";
+      }
+    };
+
+    // Trainer recap
+    async function loadTrainerRecap() {
+      const tbody = document.getElementById("recapTableBody");
+      const results = await getExamResults();
+
+      if (results.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--muted); padding: 18px;">Belum ada siswa yang menyelesaikan kuis.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = "";
+      results.forEach((r, idx) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td style="text-align: center;">${idx + 1}</td>
+          <td style="font-weight: 700;">${r.name}</td>
+          <td style="text-align: center;">${r.kelas}</td>
+          <td>${r.examTitle}</td>
+          <td style="text-align: center; font-weight: 800; font-size: 14px; color: ${r.score >= 85 ? '#059669' : '#2563eb'};">
+            ${r.score}
+          </td>
+          <td style="text-align: center;">
+            <span class="predikat-badge predikat-${r.score >= 85 ? 'A' : (r.score >= 75 ? 'B' : 'C')}">${r.score >= 85 ? 'A' : (r.score >= 75 ? 'B' : 'C')}</span>
+          </td>
+          <td style="font-size: 11px; color: var(--muted);">${new Date(r.completedAt || Date.now()).toLocaleString("id-ID")}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // ======================================================================
+    // SUITE KEAMANAN CBT: ANTI-SALIN, ANTI-SCREENSHOT & ANTI-PINDAH TAB
+    // ======================================================================
+    let cheatViolations = 0;
+    let toastTimeout = null;
+
+    function isStudentExamActive() {
+      const work = document.getElementById("examWorkContainer");
+      return (
+        user && 
+        user.role === 'siswa' && 
+        work && 
+        work.style.display !== 'none'
+      );
+    }
+
+    function playAlertBeep() {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(480, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.22);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.22);
+      } catch (_) {}
+    }
+
+    function triggerSecurityAlert(msg = "Tindakan ini dinonaktifkan demi integritas ujian!") {
+      playAlertBeep();
+      const toast = document.getElementById("securityToast");
+      const msgEl = document.getElementById("securityToastMsg");
+      if (toast && msgEl) {
+        msgEl.textContent = msg;
+        toast.classList.add("show");
+        clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(() => {
+          toast.classList.remove("show");
+        }, 2500);
+      }
+    }
+
+    function showCheatShield(reason = "Upaya tangkapan layar / pindah jendela terdeteksi!") {
+      if (!isStudentExamActive()) return;
+      cheatViolations++;
+      playAlertBeep();
+
+      const shield = document.getElementById("examCheatShield");
+      const vCount = document.getElementById("cheatViolationCount");
+      const desc = document.getElementById("cheatShieldDesc");
+      const work = document.getElementById("examWorkContainer");
+
+      if (vCount) vCount.textContent = cheatViolations;
+      if (desc) desc.textContent = `${reason}. Seluruh aktivitas ujian dipantau dan diawasi oleh pengawas & pelatih ekstrakurikuler.`;
+
+      // Buramkan soal ujian di latar belakang
+      if (work) work.classList.add("blur-exam-screen");
+      if (shield) shield.style.display = "flex";
+
+      // Hapus data clipboard jika ada naskah yang sempat tersalin
+      try {
+        navigator.clipboard.writeText("⚠️ Keamanan Ujian CBT Pramuka MAN 4 Banjar: Dilarang menyalin atau mengambil screenshot naskah soal!");
+      } catch (_) {}
+    }
+
+    const btnDismiss = document.getElementById("btnDismissCheatShield");
+    if (btnDismiss) {
+      btnDismiss.addEventListener("click", () => {
+        const shield = document.getElementById("examCheatShield");
+        const work = document.getElementById("examWorkContainer");
+        if (shield) shield.style.display = "none";
+        if (work) work.classList.remove("blur-exam-screen");
+      });
+    }
+
+    // 1. Matikan Klik Kanan (Context Menu) saat ujian aktif
+    document.addEventListener("contextmenu", (e) => {
+      if (isStudentExamActive()) {
+        e.preventDefault();
+        triggerSecurityAlert("⚠️ Klik kanan dinonaktifkan demi keamanan ujian!");
+        return false;
+      }
+    });
+
+    // 2. Matikan Seleksi Teks & Salin (Copy / Cut)
+    document.addEventListener("selectstart", (e) => {
+      if (isStudentExamActive() && e.target.tagName !== "INPUT" && e.target.tagName !== "TEXTAREA") {
+        e.preventDefault();
+        return false;
+      }
+    });
+
+    document.addEventListener("copy", (e) => {
+      if (isStudentExamActive()) {
+        e.preventDefault();
+        triggerSecurityAlert("⚠️ Dilarang menyalin (Copy) teks naskah soal ujian!");
+        if (e.clipboardData) {
+          e.clipboardData.setData("text/plain", "⚠️ Soal Ujian Pramuka MAN 4 Banjar Terlindungi.");
+        }
+      }
+    });
+
+    document.addEventListener("cut", (e) => {
+      if (isStudentExamActive()) {
+        e.preventDefault();
+      }
+    });
+
+    // 3. Deteksi Pintasan Keyboard (PrtScn, Ctrl+C, Ctrl+P, Ctrl+U, Ctrl+S, F12, Snipping Tool)
+    window.addEventListener("keydown", (e) => {
+      if (!isStudentExamActive()) return;
+
+      // PrintScreen Key
+      if (e.key === "PrintScreen" || e.keyCode === 44) {
+        e.preventDefault();
+        showCheatShield("Upaya Tangkapan Layar (PrintScreen) terdeteksi");
+        return false;
+      }
+
+      // Ctrl + Key
+      if (e.ctrlKey || e.metaKey) {
+        const k = (e.key || "").toLowerCase();
+        if (["c", "x", "a", "u", "s", "p"].includes(k)) {
+          e.preventDefault();
+          triggerSecurityAlert(`⚠️ Pintasan Ctrl+${k.toUpperCase()} dinonaktifkan saat ujian!`);
+          return false;
+        }
+      }
+
+      // F12 or Inspect Element
+      if (e.key === "F12" || ((e.ctrlKey || e.metaKey) && e.shiftKey && ["i", "j", "c"].includes((e.key || "").toLowerCase()))) {
+        e.preventDefault();
+        triggerSecurityAlert("⚠️ Inspeksi halaman (Developer Tools) dinonaktifkan!");
+        return false;
+      }
+
+      // Windows Snipping Tool (Win + Shift + S)
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key || "").toLowerCase() === "s") {
+        e.preventDefault();
+        showCheatShield("Snipping Tool / Tangkapan Layar tidak diizinkan");
+        return false;
+      }
+    });
+
+    window.addEventListener("keyup", (e) => {
+      if (!isStudentExamActive()) return;
+      if (e.key === "PrintScreen" || e.keyCode === 44) {
+        showCheatShield("Upaya Tangkapan Layar (PrintScreen) terdeteksi");
+      }
+    });
+
+    // 4. Deteksi Pindah Tab / Minimize Jendela
+    document.addEventListener("visibilitychange", () => {
+      if (!isStudentExamActive()) return;
+      if (document.hidden) {
+        showCheatShield("Anda terdeteksi meninggalkan tab lembar ujian");
+      }
+    });
+
+    // 5. Deteksi Jendela Kehilangan Fokus (Snipping Tool overlay, buka aplikasi lain)
+    window.addEventListener("blur", () => {
+      if (!isStudentExamActive()) return;
+      showCheatShield("Jendela ujian kehilangan fokus (membuka aplikasi lain / screen capture)");
+    });
+
+    loadExamsList();
+  </script>
+</body>
+</html>
+

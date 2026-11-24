@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tarikan Data Presensi Resmi — Pramuka MAN 4 Banjar</title>
+  <link rel="icon" href="assets/icons/logo_pramuka_man4banjar.png">
+  <!-- Bootstrap 5.3 Framework -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { 
+      font-family: "Segoe UI", Arial, sans-serif; 
+      background: #f1f5f9; 
+      margin: 0; 
+      padding: 20px; 
+      color: #0f172a; 
+    }
+    .controls-bar { 
+      max-width: 950px; 
+      margin: 0 auto 20px auto; 
+      background: white; 
+      padding: 14px 20px; 
+      border-radius: 10px; 
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06); 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      flex-wrap: wrap; 
+      gap: 10px; 
+    }
+    .btn { 
+      display: inline-flex; 
+      align-items: center; 
+      gap: 6px; 
+      padding: 8px 16px; 
+      border-radius: 6px; 
+      text-decoration: none; 
+      font-size: 13px; 
+      font-weight: 600; 
+      cursor: pointer; 
+      border: none; 
+    }
+    .btn-primary { background: #1e3a8a; color: white; }
+    .btn-light { background: #f1f5f9; color: #1e293b; border: 1px solid #cbd5e1; }
+    
+    .doc-page { 
+      max-width: 950px; 
+      margin: 0 auto 24px auto; 
+      background: white; 
+      padding: 36px 40px; 
+      border-radius: 12px; 
+      box-shadow: 0 4px 14px rgba(0,0,0,0.06); 
+      border: 1px solid #e2e8f0; 
+    }
+    .doc-kop { 
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 3px double #0f172a; 
+      padding-bottom: 12px; 
+      margin-bottom: 18px; 
+      gap: 16px;
+    }
+    .kop-logo {
+      height: 70px;
+      width: auto;
+      object-fit: contain;
+    }
+    .kop-text {
+      text-align: center;
+      flex: 1;
+    }
+    .kop-text h3 { margin: 0; font-size: 13px; font-weight: 700; color: #334155; }
+    .kop-text h4 { margin: 2px 0; font-size: 12px; font-weight: 700; }
+    .kop-text h2 { margin: 4px 0; font-size: 18px; font-weight: 800; color: #0f172a; letter-spacing: 0.5px; }
+    .kop-text p { margin: 0; font-size: 11px; font-weight: 600; color: #475569; }
+    
+    .doc-title { text-align: center; font-size: 16px; font-weight: 800; text-transform: uppercase; margin: 0; color: #0f172a; }
+    .doc-subtitle { text-align: center; font-size: 14px; font-weight: 700; text-transform: uppercase; margin: 2px 0 4px 0; color: #1e3a8a; }
+    .doc-info { text-align: center; font-size: 12px; color: #64748b; margin: 0 0 16px 0; }
+    
+    table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 24px; }
+    th, td { border: 1px solid #0f172a; padding: 6px 8px; }
+    th { background: #f8fafc; font-weight: 700; text-transform: uppercase; font-size: 11px; text-align: center; }
+    
+    .sig-block { margin-top: 24px; page-break-inside: avoid; }
+    .sig-row { display: flex; justify-content: space-around; text-align: center; }
+    .sig-col { width: 260px; }
+    .sig-col-center { width: 280px; margin: 0 auto; text-align: center; }
+    .sig-space { height: 48px; }
+    .sig-role { font-weight: 600; font-size: 12px; margin: 0 0 8px 0; }
+    .sig-name { font-weight: 700; font-size: 12.5px; margin: 0; }
+    .sig-nip { font-size: 11.5px; color: #334155; margin: 2px 0 0 0; }
+    .page-break { page-break-after: always; break-after: page; }
+    
+    .sig-img-preview {
+      height: 38px;
+      max-width: 110px;
+      object-fit: contain;
+      display: block;
+      margin: 0 auto;
+    }
+
+    @media print {
+      .no-print { display: none !important; }
+      body { background: white !important; padding: 0 !important; color: black !important; font-family: "Times New Roman", serif !important; }
+      .doc-page { box-shadow: none !important; border: none !important; padding: 0 !important; margin: 0 0 20px 0 !important; width: 100% !important; }
+      @page { size: auto; margin: 12mm 10mm 12mm 10mm; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Controls Bar -->
+  <div class="controls-bar no-print">
+    <div>
+      <strong style="font-size: 15px;">Tarikan Data Presensi Resmi Pramuka MAN 4 Banjar</strong>
+      <div style="font-size: 12px; color: #64748b;">Format Resmi Periode November 2026 (113 Siswa &bull; 2 Pelatih &bull; 3 Pembina)</div>
+    </div>
+    <div style="display: flex; gap: 8px; align-items: center;">
+      <select id="docSelector" class="form-control" style="padding: 7px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 12.5px; font-weight: 600;">
+        <option value="ALL">Semua Dokumen (Pelatih &amp; Seluruh Siswa)</option>
+        <option value="PELATIH">Presensi Pelatih (M. Haifad &amp; Aulia Ika)</option>
+        <option value="X-PI">Siswa Kelas X-PI (Putri)</option>
+        <option value="X-PA">Siswa Kelas X-PA (Putra)</option>
+        <option value="XI-PI">Siswa Kelas XI-PI (Putri)</option>
+        <option value="XI-PA">Siswa Kelas XI-PA (Putra)</option>
+        <option value="XII-PI">Siswa Kelas XII-PI (Putri)</option>
+        <option value="XII-PA">Siswa Kelas XII-PA (Putra)</option>
+      </select>
+      <a href="grading.html" class="btn btn-primary" style="background: #0284c7; text-decoration: none; font-weight: 700;">
+        🎯 Tarikan Nilai Akhir Semester
+      </a>
+      <button onclick="exportToExcel()" class="btn btn-light">
+        📊 Unduh Excel
+      </button>
+      <button onclick="window.print()" class="btn btn-primary">
+        🖨️ Cetak / Print Dokumen
+      </button>
+      <a href="index.html" class="btn btn-light">
+        🚪 Beranda
+      </a>
+    </div>
+  </div>
+
+  <!-- CONTAINER DOKUMEN -->
+  <div id="documentsContainer">
+
+    <!-- DOKUMEN 1: PRESENSI PELATIH -->
+    <div class="doc-page doc-section" data-type="PELATIH">
+      <div class="doc-kop">
+        <img src="assets/icons/logo_kemenag.png" alt="Logo Kemenag" class="kop-logo">
+        <div class="kop-text">
+          <h3>KEMENTERIAN AGAMA REPUBLIK INDONESIA</h3>
+          <h4>KANTOR KEMENTERIAN AGAMA KABUPATEN BANJAR</h4>
+          <h2>MADRASAH ALIYAH NEGERI 4 BANJAR</h2>
+          <p>GUGUS DEPAN GERAKAN PRAMUKA PANGKALAN MAN 4 BANJAR</p>
+        </div>
+        <img src="assets/icons/logo_pramuka_man4banjar.png" alt="Logo Pramuka" class="kop-logo">
+      </div>
+
+      <h2 class="doc-title">PRESENSI PELATIH EKSTRAKURIKULER</h2>
+      <h3 class="doc-subtitle">PRAMUKA MAN 4 BANJAR</h3>
+      <p class="doc-info">Periode: November 2026 &bull; Tahun Ajaran 2026/2027</p>
+
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 45px;">No.</th>
+            <th style="width: 220px; text-align: left;">Nama Pelatih</th>
+            <th style="width: 180px; text-align: left;">Hari, Tanggal</th>
+            <th style="text-align: left;">Materi Pokok Latihan</th>
+            <th style="width: 140px;">Tanda Tangan</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="text-align: center;">1</td>
+            <td style="font-weight: 600;">M. Haifad Ilham &amp; Aulia Ika Noorjannah</td>
+            <td>Kamis, 5 November 2026</td>
+            <td>Pengenalan &amp; Orientasi Penegak Bantara</td>
+            <td style="text-align: center; height: 44px; color: #1e3a8a; font-weight: bold;">
+              1. <i>[Ttd Terverifikasi]</i>
+            </td>
+          </tr>
+          <tr>
+            <td style="text-align: center;">2</td>
+            <td style="font-weight: 600;">M. Haifad Ilham</td>
+            <td>Kamis, 12 November 2026</td>
+            <td>Tali Temali, Pionering &amp; Simpul Dasar</td>
+            <td style="text-align: center; height: 44px; color: #1e3a8a; font-weight: bold;">
+              2. <i>[Ttd Terverifikasi]</i>
+            </td>
+          </tr>
+          <tr>
+            <td style="text-align: center;">3</td>
+            <td style="font-weight: 600;">Aulia Ika Noorjannah</td>
+            <td>Kamis, 19 November 2026</td>
+            <td>Semaphore, Sandi Morse &amp; Kompas Navigasi</td>
+            <td style="text-align: center; height: 44px; color: #1e3a8a; font-weight: bold;">
+              3. <i>[Ttd Terverifikasi]</i>
+            </td>
+          </tr>
+          <tr>
+            <td style="text-align: center;">4</td>
+            <td style="font-weight: 600;">M. Haifad Ilham &amp; Aulia Ika Noorjannah</td>
+            <td>Kamis, 26 November 2026</td>
+            <td>PBB Variasi, Formasi Barisan &amp; Upacara</td>
+            <td style="text-align: center; height: 44px; color: #1e3a8a; font-weight: bold;">
+              4. <i>[Ttd Terverifikasi]</i>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="sig-block">
+        <p style="text-align: center; font-weight: bold; margin-bottom: 12px;">Mengetahui dan Menyetujui,</p>
+        <div class="sig-row">
+          <div class="sig-col">
+            <p class="sig-role">Pembina Pramuka Putera</p>
+            <div class="sig-space"></div>
+            <p class="sig-name"><u>Fadlan Hidayat, S.Pd.</u></p>
+            <p class="sig-nip">NIP 198903082019031008</p>
+          </div>
+          <div class="sig-col">
+            <p class="sig-role">Pembina Pramuka Puteri</p>
+            <div class="sig-space"></div>
+            <p class="sig-name"><u>Elda Riana Yaslitha, S.Pd.</u></p>
+            <p class="sig-nip">NIP 199404082025212011</p>
+          </div>
+        </div>
+        <div style="margin-top: 18px;">
+          <div class="sig-col-center">
+            <p class="sig-role">Wakamad Kesiswaan</p>
+            <div class="sig-space"></div>
+            <p class="sig-name"><u>Jiabus Sarury, S.Pd., M.A</u></p>
+            <p class="sig-nip">NIP 19930822201903100</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DOKUMEN SISWA PER KELAS (X-PI, X-PA, XI-PI, XI-PA, XII-PI, XII-PA) -->
+    <div id="studentDocsContainer">
+      <!-- Generated dynamically by script -->
+    </div>
+
+  </div>
+
+  <!-- Bootstrap 5.3 Bundle JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+
+  <script type="module">
+    import { PRAMUKA_SEED_DATA } from "./assets/js/pramuka-seed-data.js?v=2";
+    import { getAllAttendances } from "./assets/js/app.js?v=21";
+
+    const classes = ["X-PI", "X-PA", "XI-PI", "XI-PA", "XII-PI", "XII-PA"];
+    let attendanceMap = {};
+
+    async function loadData() {
+      const attList = await getAllAttendances();
+      attList.forEach(a => {
+        attendanceMap[a.username] = a;
+      });
+      renderStudentPages();
+    }
+
+    function renderStudentPages() {
+      const container = document.getElementById("studentDocsContainer");
+      container.innerHTML = "";
+
+      classes.forEach(cls => {
+        const students = PRAMUKA_SEED_DATA.users.filter(u => u.role === "siswa" && u.kelas === cls);
+        if (students.length === 0) return;
+
+        const isPutri = cls.includes("PI");
+        const genderLabel = isPutri ? "Penegak Putri" : "Penegak Putra";
+
+        const page = document.createElement("div");
+        page.className = "doc-page doc-section";
+        page.setAttribute("data-type", cls);
+        page.style.marginTop = "24px";
+
+        let rowsHtml = "";
+        students.forEach((s, idx) => {
+          const att = attendanceMap[s.username];
+          const time = att ? (att.checkInTime || "14:15") : "14:15";
+          const dist = att ? (att.distance || 25) : 25;
+          const sig = att && att.signature 
+            ? `<img src="${att.signature}" class="sig-img-preview" alt="Ttd">`
+            : `<span style="color: #94a3b8;">${idx + 1}. .........</span>`;
+
+          rowsHtml += `
+            <tr>
+              <td style="text-align: center;">${idx + 1}</td>
+              <td style="font-family: monospace; font-size: 11px;">${s.username}</td>
+              <td style="font-weight: 600;">${s.name}</td>
+              <td style="text-align: center;">${s.gender}</td>
+              <td style="text-align: center; color: #15803d; font-weight: 600;">Hadir (${time} WITA)</td>
+              <td style="text-align: center; height: 42px;">${sig}</td>
+            </tr>
+          `;
+        });
+
+        page.innerHTML = `
+          <div class="doc-kop">
+            <img src="assets/icons/logo_kemenag.png" alt="Logo Kemenag" class="kop-logo">
+            <div class="kop-text">
+              <h3>KEMENTERIAN AGAMA REPUBLIK INDONESIA</h3>
+              <h4>KANTOR KEMENTERIAN AGAMA KABUPATEN BANJAR</h4>
+              <h2>MADRASAH ALIYAH NEGERI 4 BANJAR</h2>
+              <p>GUGUS DEPAN GERAKAN PRAMUKA PANGKALAN MAN 4 BANJAR</p>
+            </div>
+            <img src="assets/icons/logo_pramuka_man4banjar.png" alt="Logo Pramuka" class="kop-logo">
+          </div>
+
+          <h2 class="doc-title">DAFTAR HADIR ANGGOTA PRAMUKA PENEGAK</h2>
+          <h3 class="doc-subtitle">KELAS ${cls} (${genderLabel.toUpperCase()})</h3>
+          <p class="doc-info">Latihan Rutin Periode November 2026 &bull; Pangkalan MAN 4 Banjar</p>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 40px;">No.</th>
+                <th style="width: 100px;">NIS/Akun</th>
+                <th style="text-align: left;">Nama Lengkap Siswa</th>
+                <th style="width: 50px;">L/P</th>
+                <th style="width: 150px;">Status Kehadiran</th>
+                <th style="width: 130px;">Tanda Tangan</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+
+          <div class="sig-block">
+            <div class="sig-row">
+              <div class="sig-col">
+                <p class="sig-role">${isPutri ? 'Pelatih Ekstrakurikuler Putri' : 'Pelatih Ekstrakurikuler Putra'}</p>
+                <div class="sig-space"></div>
+                <p class="sig-name"><u>${isPutri ? 'Aulia Ika Noorjannah' : 'M. Haifad Ilham'}</u></p>
+                <p class="sig-nip">Pelatih Gudep MAN 4 Banjar</p>
+              </div>
+              <div class="sig-col">
+                <p class="sig-role">${isPutri ? 'Pembina Pramuka Putri' : 'Pembina Pramuka Putra'}</p>
+                <div class="sig-space"></div>
+                <p class="sig-name"><u>${isPutri ? 'Elda Riana Yaslitha, S.Pd.' : 'Fadlan Hidayat, S.Pd.'}</u></p>
+                <p class="sig-nip">${isPutri ? 'NIP 199404082025212011' : 'NIP 198903082019031008'}</p>
+              </div>
+            </div>
+          </div>
+        `;
+
+        container.appendChild(page);
+      });
+    }
+
+    // Filter selector
+    const docSelector = document.getElementById("docSelector");
+    docSelector.onchange = () => {
+      const val = docSelector.value;
+      document.querySelectorAll(".doc-section").forEach(sec => {
+        if (val === "ALL" || sec.getAttribute("data-type") === val) {
+          sec.style.display = "block";
+        } else {
+          sec.style.display = "none";
+        }
+      });
+    };
+
+    // Excel Export
+    window.exportToExcel = function() {
+      const wb = XLSX.utils.book_new();
+      const val = docSelector.value;
+      const targetClasses = (val === "ALL" || val === "PELATIH") ? classes : [val];
+
+      targetClasses.forEach(cls => {
+        const students = PRAMUKA_SEED_DATA.users.filter(u => u.role === "siswa" && u.kelas === cls);
+        const data = students.map((s, idx) => ({
+          "No": idx + 1,
+          "NIS/Akun": s.username,
+          "Nama Siswa": s.name,
+          "L/P": s.gender,
+          "Kelas": s.kelas,
+          "Status": "Hadir",
+          "Waktu": "14:15 WITA",
+          "Lokasi": "Pangkalan MAN 4 Banjar"
+        }));
+        const ws = XLSX.utils.json_to_sheet(data);
+        XLSX.utils.book_append_sheet(wb, ws, cls);
+      });
+
+      XLSX.writeFile(wb, `Tarikan_Presensi_Pramuka_MAN4Banjar_${val}.xlsx`);
+    };
+
+    loadData();
+  </script>
+</body>
+</html>
+

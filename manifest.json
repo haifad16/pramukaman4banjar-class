@@ -1,0 +1,13 @@
+{
+  "name": "PRESENSI PRAMUKA MAN 4 BANJAR",
+  "short_name": "PRAMUKA MAN4",
+  "start_url": "/absen_man4banjar/index.php",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#1e3a8a",
+  "description": "Sistem Presensi Digital Terpadu Ekstrakurikuler Pramuka MAN 4 Banjar",
+  "icons": [
+    {"src":"/absen_man4banjar/assets/icons/logo_pramuka_man4banjar.png","sizes":"540x540","type":"image/png"},
+    {"src":"/absen_man4banjar/assets/icons/logo_pramuka_man4banjar.png","sizes":"192x192","type":"image/png"}
+  ]
+}

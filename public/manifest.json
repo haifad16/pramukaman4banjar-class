@@ -1,0 +1,22 @@
+{
+  "name": "PRAMUKA MAN 4 BANJAR — Classroom & Presensi",
+  "short_name": "Pramuka MAN4",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#1e3a8a",
+  "description": "Sistem Presensi Digital & Pramuka Classroom Terpadu MAN 4 Banjar",
+  "icons": [
+    {
+      "src": "/assets/icons/logo_pramuka_man4banjar.png",
+      "sizes": "540x540",
+      "type": "image/png"
+    },
+    {
+      "src": "/assets/icons/logo_pramuka_man4banjar.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}
+

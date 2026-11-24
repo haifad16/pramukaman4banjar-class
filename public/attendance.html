@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Presensi Kehadiran Mandiri — Pramuka MAN 4 Banjar</title>
+  <link rel="icon" href="assets/icons/logo_pramuka_man4banjar.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <!-- Bootstrap 5.3 Framework -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+  <link rel="stylesheet" href="assets/css/style.css">
+  <style>
+    .step-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      margin-bottom: 16px;
+      transition: all 0.2s;
+    }
+    .step-card.locked {
+      opacity: 0.6;
+      pointer-events: none;
+      filter: grayscale(0.5);
+    }
+    .step-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .step-num {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 13px;
+    }
+    .camera-box {
+      position: relative;
+      width: 100%;
+      max-width: 420px;
+      margin: 0 auto 14px;
+      background: #020617;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      aspect-ratio: 4/3;
+    }
+    .camera-box video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .sig-canvas-wrap {
+      border: 2px dashed #94a3b8;
+      border-radius: var(--radius-md);
+      background: #ffffff;
+      position: relative;
+      touch-action: none;
+      margin-bottom: 10px;
+    }
+    #signatureCanvas {
+      width: 100%;
+      height: 160px;
+      display: block;
+      cursor: crosshair;
+    }
+    .sig-watermark {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #cbd5e1;
+      font-size: 14px;
+      font-weight: 600;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Topbar Header -->
+  <header class="topbar" id="mainTopbar"></header>
+
+  <main class="container" style="max-width: 800px; margin: 24px auto; padding: 0 16px;">
+    
+    <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+      <div>
+        <h1 style="font-size: 22px; font-weight: 800; margin: 0; color: var(--text-main);">Presensi Kehadiran Terpadu</h1>
+        <p style="font-size: 13px; color: var(--muted); margin: 3px 0 0;">GPS Geofencing, Biometrik Kamera &amp; Tanda Tangan Digital Siswa</p>
+      </div>
+      <a href="index.html" class="btn btn-light" style="text-decoration: none; font-size: 12.5px;">
+        &larr; Kembali ke Beranda
+      </a>
+    </div>
+
+    <!-- Pilih Pertemuan Latihan -->
+    <div class="card" style="margin-bottom: 16px; padding: 16px 20px;">
+      <label style="font-weight: 700; font-size: 13px; color: var(--text-main); display: block; margin-bottom: 6px;">
+        Pilih Pertemuan Ekstrakurikuler:
+      </label>
+      <select id="meetingSelect" class="form-control" style="width: 100%; padding: 10px; border: 1px solid var(--line); border-radius: var(--radius-sm); font-size: 13.5px; font-weight: 600;">
+        <option value="ptm_1">Pertemuan 1: Pengenalan &amp; Orientasi Penegak Bantara (5 Nov 2026)</option>
+        <option value="ptm_2">Pertemuan 2: Tali Temali, Pionering &amp; Simpul Dasar (12 Nov 2026)</option>
+        <option value="ptm_3">Pertemuan 3: Semaphore, Sandi Morse &amp; Kompas Navigasi (19 Nov 2026)</option>
+        <option value="ptm_4" selected>Pertemuan 4: PBB Variasi, Formasi Barisan &amp; Upacara (26 Nov 2026)</option>
+      </select>
+    </div>
+
+    <!-- LANGKAH 1: LOKASI GPS -->
+    <div class="step-card" id="stepLocation">
+      <div class="step-header">
+        <div class="step-num">1</div>
+        <div>
+          <strong style="font-size: 15px; color: var(--text-main); display: block;">Verifikasi Lokasi GPS (Geofencing)</strong>
+          <span style="font-size: 12px; color: var(--muted);">Pangkalan MAN 4 Banjar (-3.3134, 115.0886 &bull; Radius 150m)</span>
+        </div>
+      </div>
+
+      <div id="locationStatus" class="result-box info" style="margin-bottom: 12px; font-size: 13px; padding: 10px 14px; border-radius: var(--radius-sm); background: #f0f9ff; border: 1px solid #bae6fd; color: #0369a1;">
+        Membaca titik koordinat GPS perangkat Anda...
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <button id="btnCheckLocation" class="btn btn-light" style="font-size: 12.5px;">
+          📍 Muat Ulang Koordinat GPS
+        </button>
+        <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-body); cursor: pointer; background: #fffbeb; padding: 6px 12px; border-radius: var(--radius-full); border: 1px solid #fde68a;">
+          <input type="checkbox" id="bypassGpsCheck">
+          <span><b>Mode Simulasi Lapangan</b> (Izinkan presensi untuk pengujian)</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- LANGKAH 2: KAMERA & BIOMETRIK -->
+    <div class="step-card locked" id="stepFace">
+      <div class="step-header">
+        <div class="step-num">2</div>
+        <div>
+          <strong style="font-size: 15px; color: var(--text-main); display: block;">Verifikasi Kamera / Foto Diri</strong>
+          <span style="font-size: 12px; color: var(--muted);">Pastikan wajah terlihat jelas menghadap kamera</span>
+        </div>
+      </div>
+
+      <div class="camera-box">
+        <video id="webcamVideo" autoplay playsinline muted></video>
+        <canvas id="photoCanvas" style="display: none;"></canvas>
+      </div>
+
+      <div id="faceStatus" style="font-size: 12.5px; text-align: center; margin-bottom: 10px; color: var(--muted);">
+        Menunggu izin akses kamera...
+      </div>
+
+      <div style="text-align: center;">
+        <button id="btnStartCamera" class="btn btn-primary" style="font-size: 13px; padding: 10px 20px;">
+          📷 Buka Kamera &amp; Ambil Foto
+        </button>
+      </div>
+    </div>
+
+    <!-- LANGKAH 3: TANDA TANGAN DIGITAL -->
+    <div class="step-card locked" id="stepSignature">
+      <div class="step-header">
+        <div class="step-num">3</div>
+        <div>
+          <strong style="font-size: 15px; color: var(--text-main); display: block;">Tanda Tangan Digital Perorangan</strong>
+          <span style="font-size: 12px; color: var(--muted);">Goreskan tanda tangan Anda dengan jari atau mouse pada kotak di bawah</span>
+        </div>
+      </div>
+
+      <div class="sig-canvas-wrap">
+        <canvas id="signatureCanvas" width="700" height="180"></canvas>
+        <div class="sig-watermark" id="signatureWatermark">Goreskan Tanda Tangan Anda di Sini</div>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span id="signatureStatus" style="font-size: 12px; color: #dc2626; font-weight: 600;">
+          ● Belum ditandatangani
+        </span>
+        <button id="btnClearSignature" class="btn btn-light" style="font-size: 12px; padding: 6px 12px;">
+          ✏️ Hapus &amp; Ulangi
+        </button>
+      </div>
+    </div>
+
+    <!-- TOMBOL SUBMIT -->
+    <div style="margin-top: 20px; text-align: center;">
+      <div id="submitResult" style="display: none; margin-bottom: 14px; padding: 12px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600;"></div>
+      <button id="btnSubmitAttendance" class="btn btn-primary" disabled style="width: 100%; padding: 14px; font-size: 16px; font-weight: 800; border-radius: var(--radius-sm); justify-content: center; box-shadow: var(--shadow-lg);">
+        ✓ Konfirmasi Simpan Presensi ke Firebase
+      </button>
+    </div>
+
+  </main>
+
+  <!-- Bootstrap 5.3 Bundle JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+
+  <script type="module">
+    import { 
+      getCurrentUser, 
+      requireAuth, 
+      renderTopbar, 
+      OFFICE_COORDS, 
+      calculateDistance,
+      saveAttendance 
+    } from "./assets/js/app.js?v=21";
+
+    const user = requireAuth();
+    if (user) {
+      renderTopbar("attendance");
+    }
+
+    // State
+    const state = {
+      lat: null,
+      lng: null,
+      accuracy: null,
+      distance: 0,
+      locationOK: false,
+      photoTaken: false,
+      photoBase64: "",
+      hasSignature: false,
+      stream: null
+    };
+
+    const locationStatus = document.getElementById("locationStatus");
+    const stepFace = document.getElementById("stepFace");
+    const stepSignature = document.getElementById("stepSignature");
+    const faceStatus = document.getElementById("faceStatus");
+    const video = document.getElementById("webcamVideo");
+    const photoCanvas = document.getElementById("photoCanvas");
+    const btnStartCamera = document.getElementById("btnStartCamera");
+    const bypassGpsCheck = document.getElementById("bypassGpsCheck");
+    const btnSubmit = document.getElementById("btnSubmitAttendance");
+    const submitResult = document.getElementById("submitResult");
+
+    // -----------------------------------------------------------
+    // 1. Geofencing GPS Check
+    // -----------------------------------------------------------
+    function updateLocationState(lat, lng, acc) {
+      state.lat = lat;
+      state.lng = lng;
+      state.accuracy = acc;
+      state.distance = calculateDistance(lat, lng, OFFICE_COORDS.lat, OFFICE_COORDS.lng);
+
+      const isValid = (state.distance <= OFFICE_COORDS.radius) || bypassGpsCheck.checked;
+      state.locationOK = isValid;
+
+      if (isValid) {
+        locationStatus.style.background = "#ecfdf5";
+        locationStatus.style.borderColor = "#a7f3d0";
+        locationStatus.style.color = "#047857";
+        locationStatus.innerHTML = `✓ <b>Lokasi Valid:</b> Jarak ±${state.distance} m dari pangkalan MAN 4 Banjar (Akurasi: ±${Math.round(acc)} m)`;
+        stepFace.classList.remove("locked");
+      } else {
+        locationStatus.style.background = "#fef2f2";
+        locationStatus.style.borderColor = "#fecaca";
+        locationStatus.style.color = "#b91c1c";
+        locationStatus.innerHTML = `✗ <b>Di Luar Radius:</b> Anda terdeteksi ±${state.distance} m dari MAN 4 Banjar (Maksimal ${OFFICE_COORDS.radius} m). Aktifkan <i>Mode Simulasi</i> jika sedang mencoba di rumah.`;
+        stepFace.classList.add("locked");
+      }
+      checkReady();
+    }
+
+    function readGps() {
+      if (!navigator.geolocation) {
+        locationStatus.textContent = "Browser tidak mendukung GPS. Silakan aktifkan Mode Simulasi.";
+        return;
+      }
+      locationStatus.textContent = "Membaca titik koordinat perangkat...";
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          updateLocationState(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
+        },
+        (err) => {
+          locationStatus.innerHTML = `Lokasi GPS tidak dapat dibaca (${err.message}). Anda dapat mengaktifkan <b>Mode Simulasi Lapangan</b> untuk melanjutkan pengujian.`;
+          if (bypassGpsCheck.checked) {
+            updateLocationState(OFFICE_COORDS.lat, OFFICE_COORDS.lng, 10);
+          }
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      );
+    }
+
+    bypassGpsCheck.addEventListener("change", () => {
+      if (bypassGpsCheck.checked) {
+        updateLocationState(state.lat || OFFICE_COORDS.lat, state.lng || OFFICE_COORDS.lng, state.accuracy || 15);
+      } else {
+        readGps();
+      }
+    });
+
+    document.getElementById("btnCheckLocation").onclick = readGps;
+    readGps();
+
+    // -----------------------------------------------------------
+    // 2. Camera & Photo Capture
+    // -----------------------------------------------------------
+    btnStartCamera.onclick = async () => {
+      if (!state.stream) {
+        try {
+          state.stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
+            audio: false
+          });
+          video.srcObject = state.stream;
+          await video.play();
+          btnStartCamera.textContent = "📸 Ambil Foto Wajah Sekarang";
+          faceStatus.textContent = "Posisikan wajah Anda tegak di depan kamera...";
+        } catch (e) {
+          faceStatus.textContent = "Kamera tidak dapat diakses: " + e.message;
+        }
+      } else {
+        // Capture photo
+        photoCanvas.width = video.videoWidth || 640;
+        photoCanvas.height = video.videoHeight || 480;
+        const ctx = photoCanvas.getContext("2d");
+        ctx.drawImage(video, 0, 0, photoCanvas.width, photoCanvas.height);
+        state.photoBase64 = photoCanvas.toDataURL("image/jpeg", 0.75);
+        state.photoTaken = true;
+
+        faceStatus.style.color = "#059669";
+        faceStatus.innerHTML = "✓ <b>Foto wajah berhasil diambil!</b>";
+        btnStartCamera.textContent = "🔄 Ambil Ulang Foto";
+
+        // Unlock Step 3
+        stepSignature.classList.remove("locked");
+        checkReady();
+      }
+    };
+
+    // -----------------------------------------------------------
+    // 3. Canvas Signature Pad
+    // -----------------------------------------------------------
+    const sigCanvas = document.getElementById("signatureCanvas");
+    const sigCtx = sigCanvas.getContext("2d");
+    const sigWatermark = document.getElementById("signatureWatermark");
+    const sigStatus = document.getElementById("signatureStatus");
+    const btnClearSig = document.getElementById("btnClearSignature");
+
+    let isDrawing = false;
+    let lastX = 0, lastY = 0;
+
+    sigCtx.strokeStyle = "#0f172a";
+    sigCtx.lineWidth = 3;
+    sigCtx.lineCap = "round";
+    sigCtx.lineJoin = "round";
+
+    function getPos(e) {
+      const rect = sigCanvas.getBoundingClientRect();
+      const scaleX = sigCanvas.width / rect.width;
+      const scaleY = sigCanvas.height / rect.height;
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      return {
+        x: (clientX - rect.left) * scaleX,
+        y: (clientY - rect.top) * scaleY
+      };
+    }
+
+    function startDraw(e) {
+      isDrawing = true;
+      const p = getPos(e);
+      lastX = p.x;
+      lastY = p.y;
+      sigCtx.beginPath();
+      sigCtx.moveTo(lastX, lastY);
+      sigWatermark.style.display = "none";
+    }
+
+    function draw(e) {
+      if (!isDrawing) return;
+      if (e.cancelable) e.preventDefault();
+      const p = getPos(e);
+      sigCtx.lineTo(p.x, p.y);
+      sigCtx.stroke();
+      lastX = p.x;
+      lastY = p.y;
+      if (!state.hasSignature) {
+        state.hasSignature = true;
+        sigStatus.style.color = "#15803d";
+        sigStatus.textContent = "✓ Tanda tangan telah dibubuhkan";
+        checkReady();
+      }
+    }
+
+    function stopDraw() {
+      isDrawing = false;
+    }
+
+    sigCanvas.addEventListener("mousedown", startDraw);
+    sigCanvas.addEventListener("mousemove", draw);
+    window.addEventListener("mouseup", stopDraw);
+
+    sigCanvas.addEventListener("touchstart", startDraw, { passive: false });
+    sigCanvas.addEventListener("touchmove", draw, { passive: false });
+    window.addEventListener("touchend", stopDraw);
+
+    btnClearSig.onclick = () => {
+      sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
+      state.hasSignature = false;
+      sigWatermark.style.display = "flex";
+      sigStatus.style.color = "#dc2626";
+      sigStatus.textContent = "● Belum ditandatangani";
+      checkReady();
+    };
+
+    // -----------------------------------------------------------
+    // 4. Submission to Firestore
+    // -----------------------------------------------------------
+    function checkReady() {
+      const ready = state.locationOK && state.photoTaken && state.hasSignature;
+      btnSubmit.disabled = !ready;
+    }
+
+    btnSubmit.onclick = async () => {
+      if (!state.locationOK || !state.photoTaken || !state.hasSignature) {
+        alert("Lengkapi semua 3 langkah terlebih dahulu.");
+        return;
+      }
+
+      btnSubmit.disabled = true;
+      btnSubmit.textContent = "Menyimpan ke Cloud Firestore...";
+      submitResult.style.display = "none";
+
+      const now = new Date();
+      const timeStr = new Intl.DateTimeFormat("id-ID", { timeZone: "Asia/Makassar", hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(now);
+      const meetingSelect = document.getElementById("meetingSelect");
+
+      const record = {
+        userId: user.username,
+        username: user.username,
+        name: user.name,
+        role: user.role,
+        kelas: user.kelas || "Gudep",
+        gender: user.gender || "L",
+        meetingId: meetingSelect.value,
+        workDate: "2026-11-26",
+        checkInTime: timeStr,
+        lat: state.lat,
+        lng: state.lng,
+        distance: state.distance,
+        signature: sigCanvas.toDataURL("image/png"),
+        photo: state.photoBase64,
+        status: "Hadir"
+      };
+
+      try {
+        await saveAttendance(record);
+        
+        // Stop stream
+        if (state.stream) {
+          state.stream.getTracks().forEach(t => t.stop());
+        }
+
+        submitResult.className = "result-box success";
+        submitResult.style.background = "#ecfdf5";
+        submitResult.style.color = "#065f46";
+        submitResult.style.border = "1px solid #a7f3d0";
+        submitResult.style.display = "block";
+        submitResult.innerHTML = `🎉 <b>Presensi Berhasil Tersimpan di Firebase!</b><br>Waktu: ${timeStr} WITA &bull; Jarak: ±${state.distance} m`;
+
+        setTimeout(() => {
+          window.location.href = "index.html";
+        }, 1800);
+
+      } catch (err) {
+        submitResult.className = "result-box error";
+        submitResult.style.background = "#fef2f2";
+        submitResult.style.color = "#b91c1c";
+        submitResult.style.border = "1px solid #fecaca";
+        submitResult.style.display = "block";
+        submitResult.textContent = "Gagal menyimpan presensi: " + err.message;
+        btnSubmit.disabled = false;
+        btnSubmit.textContent = "✓ Konfirmasi Simpan Presensi ke Firebase";
+      }
+    };
+  </script>
+</body>
+</html>
+

@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Pengambilan &amp; Pengelolaan Nilai Akhir Semester — Pramuka MAN 4 Banjar</title>
+  <link rel="icon" href="assets/icons/logo_pramuka_man4banjar.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <!-- Bootstrap 5.3 Framework -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+  <link rel="stylesheet" href="assets/css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    .filter-bar {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      padding: 14px 18px;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .score-summary-card {
+      background: #eff6ff;
+      border: 1.5px solid #bfdbfe;
+      border-radius: var(--radius-md);
+      padding: 16px 20px;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 14px;
+    }
+    .score-input {
+      width: 68px;
+      padding: 7px 8px;
+      font-size: 13.5px;
+      font-weight: 700;
+      text-align: center;
+      border: 1.5px solid var(--line);
+      border-radius: var(--radius-xs);
+      transition: all 0.2s;
+    }
+    .score-input:focus {
+      border-color: #2563eb;
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    }
+    .cell-final-score {
+      font-size: 15px;
+      font-weight: 900;
+      color: #1e40af;
+      background: #f0f7ff;
+    }
+    .grading-table th {
+      font-size: 12px;
+      font-weight: 800;
+      padding: 10px 10px;
+      background: #f8fafc;
+      color: #1e293b;
+      border-bottom: 2px solid #cbd5e1;
+    }
+    .grading-table td {
+      padding: 8px 10px;
+      vertical-align: middle;
+      font-size: 12.5px;
+    }
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      padding: 20px;
+    }
+    .modal-box {
+      background: white;
+      border-radius: var(--radius-lg);
+      max-width: 650px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: var(--shadow-xl);
+      padding: 24px;
+    }
+    @media print {
+      .no-print { display: none !important; }
+      body { background: white !important; padding: 0 !important; color: black !important; font-family: "Times New Roman", serif !important; }
+      .container { max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
+      .grading-table-wrap { overflow: visible !important; border: none !important; box-shadow: none !important; }
+      .grading-table { width: 100% !important; border-collapse: collapse !important; font-size: 10.5px !important; }
+      .grading-table th, .grading-table td { border: 1px solid #000 !important; padding: 5px 6px !important; }
+      .score-input { border: none !important; text-align: center !important; font-size: 10.5px !important; background: transparent !important; width: auto !important; }
+      .input-catatan { border: none !important; font-size: 10.5px !important; background: transparent !important; padding: 0 !important; }
+      #printKop { display: block !important; }
+      @page { size: landscape; margin: 12mm 10mm 12mm 10mm; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Topbar Header -->
+  <header class="topbar" id="mainTopbar"></header>
+
+  <main class="container" style="max-width: 1300px; margin: 24px auto; padding: 0 16px;">
+
+    <!-- Page Header & Action Buttons -->
+    <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+      <div>
+        <h1 style="font-size: 22px; font-weight: 800; margin: 0; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+          <span>🎯</span>
+          <span>Pengambilan &amp; Pengelolaan Nilai Akhir Semester</span>
+        </h1>
+        <p style="font-size: 13px; color: var(--muted); margin: 4px 0 0;">
+          Kombinasi Nilai Kuis CBT + Rekap Absensi Kehadiran 1 Semester untuk Buku Rapor MAN 4 Banjar
+        </p>
+      </div>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button id="btnTogglePhotoViewer" class="btn btn-light" style="font-size: 12.5px; font-weight: 700; color: #854d0e; border: 1.5px solid #fde047; background: #fefce8;">
+          📷 Buka Foto Rekapan (Split Screen)
+        </button>
+        <button id="btnOpenImportModal" class="btn btn-primary" style="font-size: 12.5px; font-weight: 700; background: #0284c7;">
+          📥 Tempel Rekapan Absensi Manual
+        </button>
+        <button id="btnExportExcel" class="btn btn-light" style="font-size: 12.5px; font-weight: 600;">
+          📊 Unduh Excel (.xlsx)
+        </button>
+        <button onclick="window.print()" class="btn btn-primary" style="font-size: 12.5px; font-weight: 700;">
+          🖨️ Cetak Lembar Nilai Rapor
+        </button>
+      </div>
+    </div>
+
+    <!-- Official Scoring Policy Banner -->
+    <div class="score-summary-card no-print">
+      <div>
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+          <span style="font-size: 18px;">📋</span>
+          <strong style="color: #1e3a8a; font-size: 14.5px;">
+            Kebijakan Nilai Akhir Semester (Kuis CBT &amp; Absensi Kehadiran 1 Semester):
+          </strong>
+        </div>
+        <span style="font-size: 13px; color: #334155; line-height: 1.5; display: block;">
+          <b>Nilai Akhir Rapor</b> dihitung proporsional dari <b>Nilai Kuis CBT (Ujian Semester 1)</b> dan <b>Nilai Absensi Kehadiran selama 1 Semester</b>.
+          <br>
+          <span style="color: #0369a1; font-size: 12.5px;">
+            ℹ️ <i>Karena rekapan absensi semester 1 berbentuk foto/catatan kertas, Anda bisa mengunggah fotonya via tombol <b>"📷 Buka Foto Rekapan"</b> untuk mode belah layar, atau menempel teks rekapan via tombol <b>"📥 Tempel Rekapan Absensi Manual"</b>.</i>
+          </span>
+        </span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700;">
+        <span style="color: #475569; margin-right: 4px;">KKM 75 &bull; Standar Predikat:</span>
+        <span class="predikat-badge predikat-A">A</span> &ge; 85 &bull;
+        <span class="predikat-badge predikat-B">B</span> &ge; 75 (Tuntas) &bull;
+        <span class="predikat-badge predikat-C">C</span> &ge; 65 &bull;
+        <span class="predikat-badge predikat-D">D</span> &lt; 65
+      </div>
+    </div>
+
+    <!-- Filter & Weight Settings Bar -->
+    <div class="filter-bar no-print">
+      <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+        <!-- Filter Kelas -->
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <label style="font-size: 13px; font-weight: 700; color: var(--text-main);">Rombel / Kelas:</label>
+          <select id="classFilter" class="form-control" style="padding: 7px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); font-size: 13px; font-weight: 600;">
+            <option value="ALL">Semua Kelas (113 Siswa)</option>
+            <option value="X-PI">Kelas X-PI (Putri)</option>
+            <option value="X-PA">Kelas X-PA (Putra)</option>
+            <option value="XI-PI">Kelas XI-PI (Putri)</option>
+            <option value="XI-PA">Kelas XI-PA (Putra)</option>
+            <option value="XII-PI">Kelas XII-PI (Putri)</option>
+            <option value="XII-PA">Kelas XII-PA (Putra)</option>
+          </select>
+        </div>
+
+        <!-- Filter Paket Kuis CBT -->
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <label style="font-size: 13px; font-weight: 700; color: #1e40af;">Paket Kuis CBT:</label>
+          <select id="examFilter" class="form-control" style="padding: 7px 12px; border: 1.5px solid #93c5fd; border-radius: var(--radius-sm); font-size: 13px; font-weight: 700; color: #1e3a8a; background: #f0f7ff;">
+            <!-- Loaded dynamically from exams -->
+          </select>
+        </div>
+
+        <!-- Pemilih Bobot Rumus Penilaian -->
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <label style="font-size: 13px; font-weight: 700; color: #047857;">Bobot Nilai Akhir:</label>
+          <select id="weightSelector" class="form-control" style="padding: 7px 12px; border: 1.5px solid #a7f3d0; border-radius: var(--radius-sm); font-size: 13px; font-weight: 700; color: #065f46; background: #ecfdf5;">
+            <option value="50_50" selected>50% Kehadiran 1 Sem + 50% Kuis CBT (Standar)</option>
+            <option value="40_60">40% Kehadiran 1 Sem + 60% Kuis CBT</option>
+            <option value="30_70">30% Kehadiran 1 Sem + 70% Kuis CBT</option>
+            <option value="60_40">60% Kehadiran 1 Sem + 40% Kuis CBT</option>
+            <option value="0_100">100% Kuis CBT Saja (Tanpa Absen)</option>
+            <option value="100_0">100% Kehadiran 1 Semester Saja</option>
+          </select>
+        </div>
+
+        <span id="studentCountBadge" class="badge" style="background: #f1f5f9; color: #475569; font-size: 12px; font-weight: 600;">
+          Menampilkan 113 Siswa
+        </span>
+      </div>
+
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button id="btnSyncFromQuiz" class="btn btn-light" style="font-size: 12px; font-weight: 700; color: #0369a1; border: 1px solid #bae6fd;" title="Sinkronkan nilai kuis terbaru yang dikerjakan siswa">
+          ⚡ Tarik Nilai Kuis CBT
+        </button>
+        <button id="btnSimulateAtt" class="btn btn-light" style="font-size: 12px; font-weight: 600; color: #475569;" title="Isi nilai kehadiran sementara (90) untuk seluruh siswa">
+          🎲 Isi Kehadiran Sementara (90)
+        </button>
+        <button id="btnSaveAllGrades" class="btn btn-primary" style="font-size: 12.5px; font-weight: 700; padding: 8px 16px;">
+          💾 Simpan Semua Nilai ke Firebase
+        </button>
+      </div>
+    </div>
+
+    <!-- SPLIT-SCREEN PHOTO VIEWER PANEL (MEMPERMUDAH MELIHAT FOTO REKAPAN BERDAMPINGAN) -->
+    <div id="photoViewerPanel" class="card no-print" style="display: none; margin-bottom: 20px; border: 2px dashed #ca8a04; background: #fffbeb; padding: 18px; border-radius: var(--radius-md);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+        <div>
+          <strong style="color: #854d0e; font-size: 15px; display: flex; align-items: center; gap: 8px;">
+            <span>📷</span> <span>Pratinjau Foto Rekapan Absensi Manual 1 Semester (Mode Belah Layar)</span>
+          </strong>
+          <span style="font-size: 12.5px; color: #713f12; margin-top: 2px; display: block;">
+            Pilih foto rekapan kertas dari perangkat Anda untuk dilihat berdampingan dengan tabel pengisian nilai di bawah.
+          </span>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+          <input type="file" id="recapPhotoInput" accept="image/*" style="display: none;">
+          <button type="button" onclick="document.getElementById('recapPhotoInput').click()" class="btn btn-primary" style="font-size: 12px; font-weight: 700; background: #ca8a04;">
+            📂 Pilih Foto Rekap dari Perangkat
+          </button>
+          <button type="button" id="btnZoomInPhoto" class="btn btn-light" style="font-size: 12px;">➕ Zoom In</button>
+          <button type="button" id="btnZoomOutPhoto" class="btn btn-light" style="font-size: 12px;">➖ Zoom Out</button>
+          <button type="button" id="btnRotatePhoto" class="btn btn-light" style="font-size: 12px;">🔄 Putar</button>
+          <button type="button" id="btnClosePhotoPanel" class="btn btn-light" style="font-size: 12px; color: #dc2626; font-weight: 700;">✖ Tutup</button>
+        </div>
+      </div>
+
+      <div id="photoContainer" style="background: #0f172a; border-radius: var(--radius-sm); min-height: 220px; max-height: 520px; overflow: auto; text-align: center; display: flex; align-items: center; justify-content: center; position: relative; border: 1px solid #334155;">
+        <p id="emptyPhotoNotice" style="color: #94a3b8; font-size: 13.5px; padding: 40px 20px;">
+          📸 Belum ada foto yang dipilih.<br>
+          <span style="font-size: 12px; color: #cbd5e1;">Klik tombol <b>"Pilih Foto Rekap dari Perangkat"</b> di atas untuk membuka foto rekapan absensi manual.</span>
+        </p>
+        <img id="previewRecapImg" src="" alt="Foto Rekap Absen" style="display: none; max-width: 100%; transition: transform 0.2s ease; cursor: grab; transform-origin: center center;">
+      </div>
+    </div>
+
+    <!-- Official Kop for Print -->
+    <div class="doc-kop" style="display: none;" id="printKop">
+      <div style="text-align: center; border-bottom: 3px double #0f172a; padding-bottom: 12px; margin-bottom: 18px;">
+        <h3 style="margin: 0; font-size: 14px; font-weight: 700;">KEMENTERIAN AGAMA REPUBLIK INDONESIA</h3>
+        <h4 style="margin: 2px 0; font-size: 13px; font-weight: 700;">KANTOR KEMENTERIAN AGAMA KABUPATEN BANJAR</h4>
+        <h2 style="margin: 4px 0; font-size: 19px; font-weight: 800;">MADRASAH ALIYAH NEGERI 4 BANJAR</h2>
+        <p style="margin: 0; font-size: 11px; font-weight: 600;">GUGUS DEPAN GERAKAN PRAMUKA PANGKALAN MAN 4 BANJAR (01.095 - 01.096)</p>
+      </div>
+      <h3 style="text-align: center; font-size: 16px; font-weight: 800; text-transform: uppercase; margin: 0 0 4px 0;">
+        DAFTAR NILAI AKHIR SEMESTER EKSTRAKURIKULER PRAMUKA PENEGAK
+      </h3>
+      <p style="text-align: center; font-size: 12px; color: #64748b; margin: 0 0 16px 0;" id="printSubtitle">
+        Semester Ganjil &bull; Tahun Ajaran 2026/2027 &bull; Penilaian Terpadu Kuis CBT &amp; Kehadiran 1 Semester
+      </p>
+    </div>
+
+    <!-- Grading Table Wrap -->
+    <div class="grading-table-wrap" style="background: white; border: 1px solid var(--line); border-radius: var(--radius-md); overflow-x: auto; box-shadow: var(--shadow-sm);">
+      <table class="grading-table" id="gradesTable" style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr>
+            <th style="width: 40px; text-align: center;">No</th>
+            <th style="width: 100px;">NIS/Akun</th>
+            <th style="width: 210px;">Nama Siswa</th>
+            <th style="width: 45px; text-align: center;">L/P</th>
+            <th style="width: 70px; text-align: center;">Kelas</th>
+            <th style="width: 135px; text-align: center; background: #fefce8; color: #854d0e;">
+              Kehadiran 1 Sem (0-100)
+            </th>
+            <th style="width: 140px; text-align: center; color: #1e3a8a;">
+              Nilai Kuis CBT (0-100)
+            </th>
+            <th style="width: 120px; text-align: center; background: #e0f2fe; color: #0369a1; border-left: 2px solid #93c5fd; border-right: 2px solid #93c5fd;">
+              Nilai Akhir Semester
+            </th>
+            <th style="width: 75px; text-align: center;">Predikat</th>
+            <th>Catatan Penilaian Rapor</th>
+            <th style="width: 80px; text-align: center;" class="no-print">Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="gradesTableBody">
+          <!-- Rendered by JS -->
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pengesahan Guru / Pembina (Untuk Cetak Rapor) -->
+    <div class="sig-block" style="margin-top: 36px;" id="printSignatures">
+      <p style="text-align: center; font-weight: bold; margin-bottom: 14px;">Mengetahui dan Mengesahkan,</p>
+      <div style="display: flex; justify-content: space-around; text-align: center; flex-wrap: wrap; gap: 20px;">
+        <div style="width: 260px;">
+          <p style="font-weight: 600; font-size: 12px; margin: 0 0 50px 0;">Pembina Pramuka Putra</p>
+          <p style="font-weight: 700; font-size: 12.5px; margin: 0;"><u>Fadlan Hidayat, S.Pd.</u></p>
+          <p style="font-size: 11.5px; color: #334155; margin: 2px 0 0 0;">NIP 198903082019031008</p>
+        </div>
+        <div style="width: 260px;">
+          <p style="font-weight: 600; font-size: 12px; margin: 0 0 50px 0;">Pelatih Ekstrakurikuler</p>
+          <p style="font-weight: 700; font-size: 12.5px; margin: 0;"><u>M. Haifad Ilham</u></p>
+          <p style="font-size: 11.5px; color: #334155; margin: 2px 0 0 0;">Pelatih Gudep 01.095</p>
+        </div>
+        <div style="width: 260px;">
+          <p style="font-weight: 600; font-size: 12px; margin: 0 0 50px 0;">Wakamad Kesiswaan</p>
+          <p style="font-weight: 700; font-size: 12.5px; margin: 0;"><u>Jiabus Sarury, S.Pd., M.A</u></p>
+          <p style="font-size: 11.5px; color: #334155; margin: 2px 0 0 0;">NIP 19930822201903100</p>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- MODAL: TEMPEL REKAPAN ABSENSI MANUAL -->
+  <div id="importAttModal" class="modal-backdrop">
+    <div class="modal-box">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <h3 style="margin: 0; font-size: 17px; font-weight: 800; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+          <span>📥</span> <span>Tempel Rekapan Absensi Manual 1 Semester</span>
+        </h3>
+        <button type="button" id="btnCloseImportModal" style="background: none; border: none; font-size: 22px; cursor: pointer; color: var(--muted);">&times;</button>
+      </div>
+
+      <p style="font-size: 13px; color: var(--muted); margin: 0 0 14px; line-height: 1.5;">
+        Tempelkan data rekapan absensi manual 1 semester di bawah ini (format pesan teks, WhatsApp, atau kolom Excel). Sistem otomatis mencocokkan nama siswa dan mengisi nilai kehadiran 113 siswa sekaligus!
+      </p>
+
+      <div style="margin-bottom: 12px;">
+        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px; color: #1e3a8a;">
+          Tempel Teks / Kolom Rekapan Manual:
+        </label>
+        <textarea id="pasteAttText" class="form-control" rows="8" placeholder="Contoh format yang didukung otomatis:&#10;1. Ahmad Sauqi: 95&#10;2. Ahlam Salimah: 90&#10;Atau copy 2 kolom dari Excel (Nama Siswa dan Nilai Absensi/Persen Hadir)..." style="width: 100%; padding: 10px; font-size: 12.5px; font-family: var(--font-mono); border: 1px solid var(--line); border-radius: var(--radius-sm);"></textarea>
+      </div>
+
+      <div id="parsePreviewArea" style="display: none; margin-bottom: 16px; padding: 12px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: var(--radius-sm);">
+        <strong id="parseResultSummary" style="color: #15803d; font-size: 13px; display: block; margin-bottom: 6px;"></strong>
+        <div id="parsePreviewList" style="max-height: 150px; overflow-y: auto; font-size: 12px; font-family: var(--font-mono); color: #166534;"></div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px;">
+        <button type="button" id="btnPreviewParse" class="btn btn-light" style="font-weight: 700;">
+          🔍 Analisis Data Teks
+        </button>
+        <button type="button" id="btnApplyParsedAttendance" class="btn btn-primary" style="font-weight: 700; display: none; background: #16a34a;">
+          ✅ Terapkan Nilai ke Tabel Siswa
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bootstrap 5.3 Bundle JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+
+  <script type="module">
+    import { PRAMUKA_SEED_DATA } from "./assets/js/pramuka-seed-data.js?v=2";
+    import { 
+      getCurrentUser, 
+      requireAuth, 
+      renderTopbar, 
+      computeFinalGrade, 
+      saveStudentGrade, 
+      getAllGrades,
+      getAllAttendances,
+      getExams,
+      getExamResults,
+      syncAllGradesFromExam
+    } from "./assets/js/app.js?v=21";
+
+    const user = requireAuth();
+    if (user) {
+      renderTopbar("grading");
+    }
+
+    const students = PRAMUKA_SEED_DATA.users.filter(u => u.role === "siswa");
+    let gradesCache = {};
+    let attendanceCache = [];
+    let allExams = [];
+    let examResults = [];
+    let activeExamId = "exam_semester_1";
+    let bobotKehadiran = 50;
+    let bobotKuis = 50;
+
+    // Inisialisasi Halaman
+    async function init() {
+      // 1. Muat master ujian CBT
+      allExams = await getExams();
+      populateExamSelect();
+
+      // 2. Muat hasil ujian & rekap nilai
+      gradesCache = await getAllGrades();
+      attendanceCache = await getAllAttendances();
+      examResults = await getExamResults();
+
+      // 3. Render tabel utama
+      renderTable();
+    }
+
+    // Isi Dropdown Pilihan Ujian CBT
+    function populateExamSelect() {
+      const examSelect = document.getElementById("examFilter");
+      examSelect.innerHTML = "";
+
+      allExams.forEach(e => {
+        const opt = document.createElement("option");
+        opt.value = e.id;
+        opt.textContent = `${e.judul} (${e.questions ? e.questions.length : 0} Butir Soal)`;
+        if (e.id === "exam_semester_1" || e.judul.toLowerCase().includes("semester 1")) {
+          opt.selected = true;
+          activeExamId = e.id;
+        }
+        examSelect.appendChild(opt);
+      });
+
+      if (!activeExamId && allExams.length > 0) {
+        activeExamId = allExams[0].id;
+      }
+
+      examSelect.onchange = (e) => {
+        activeExamId = e.target.value;
+        const curExam = allExams.find(x => x.id === activeExamId);
+        if (curExam) {
+          document.getElementById("printSubtitle").textContent = 
+            `Semester Ganjil • Tahun Ajaran 2026/2027 • Penilaian Terpadu Kuis CBT ${curExam.judul} & Absensi 1 Semester`;
+        }
+        renderTable();
+      };
+    }
+
+    const tbody = document.getElementById("gradesTableBody");
+    const classFilter = document.getElementById("classFilter");
+    const weightSelector = document.getElementById("weightSelector");
+    const studentCountBadge = document.getElementById("studentCountBadge");
+
+    weightSelector.onchange = () => {
+      const val = weightSelector.value;
+      const parts = val.split("_");
+      bobotKehadiran = parseInt(parts[0]);
+      bobotKuis = parseInt(parts[1]);
+      renderTable();
+    };
+
+    function renderTable() {
+      const selectedClass = classFilter.value;
+      const filtered = selectedClass === "ALL" 
+        ? students 
+        : students.filter(s => s.kelas === selectedClass);
+
+      studentCountBadge.textContent = `Menampilkan ${filtered.length} Siswa (${selectedClass})`;
+      tbody.innerHTML = "";
+
+      filtered.forEach((s, idx) => {
+        const gradeKey = `grade_${s.username}`;
+        const saved = gradesCache[gradeKey] || {};
+
+        // Cari skor kuis CBT
+        const studentExam = examResults.find(r => r.username === s.username && (!activeExamId || r.examId === activeExamId));
+
+        let currentKuisScore = "";
+        let statusBadgeHtml = "";
+
+        if (studentExam) {
+          currentKuisScore = Number(studentExam.score);
+          statusBadgeHtml = `<span class="badge" style="background: #dcfce7; color: #15803d; font-weight: 800; font-size: 11px; padding: 3px 6px;">✓ CBT (${currentKuisScore})</span>`;
+        } else if (saved.nilaiKuis !== undefined && saved.nilaiKuis !== null && saved.nilaiKuis !== "") {
+          currentKuisScore = Number(saved.nilaiKuis);
+          statusBadgeHtml = `<span class="badge" style="background: #e0f2fe; color: #0369a1; font-weight: 700; font-size: 11px; padding: 3px 6px;">CBT (${currentKuisScore})</span>`;
+        } else {
+          currentKuisScore = "";
+          statusBadgeHtml = `<span class="badge" style="background: #fef3c7; color: #b45309; font-weight: 600; font-size: 11px; padding: 3px 6px;">⏳ Belum CBT</span>`;
+        }
+
+        // Kehadiran Manual 1 Semester
+        let currentKehadiran = "";
+        if (saved.kehadiranManual !== undefined && saved.kehadiranManual !== null && saved.kehadiranManual !== "") {
+          currentKehadiran = Number(saved.kehadiranManual);
+        } else if (saved.kehadiran !== undefined && saved.kehadiran !== null && saved.kehadiran !== "") {
+          currentKehadiran = Number(saved.kehadiran);
+        }
+
+        // Hitung Nilai Akhir Semester Terpadu
+        const { finalScore, predikat } = computeFinalGrade(currentKehadiran, currentKuisScore, bobotKehadiran, bobotKuis);
+
+        let note = saved.catatan || "";
+        if (!note) {
+          if (finalScore !== "-") {
+            note = `Nilai Akhir: ${finalScore} (Kuis: ${currentKuisScore || '-'}, Absen: ${currentKehadiran || '-'}) - ${predikat === 'A' || predikat === 'B' ? 'Tuntas KKM' : 'Perlu Pengayaan'}`;
+          } else {
+            note = "Menunggu kelengkapan nilai kuis & absensi manual";
+          }
+        }
+
+        const tr = document.createElement("tr");
+        tr.id = `row_${s.username}`;
+        tr.innerHTML = `
+          <td style="text-align: center; font-weight: 600;">${idx + 1}</td>
+          <td style="font-family: var(--font-mono); font-size: 12px; font-weight: 600;">${s.username}</td>
+          <td style="font-weight: 700; color: var(--text-main);">${s.name}</td>
+          <td style="text-align: center;">${s.gender}</td>
+          <td style="text-align: center; font-weight: 600;">${s.kelas}</td>
+          
+          <!-- Input Kehadiran Manual 1 Semester -->
+          <td style="text-align: center; background: #fffbeb;">
+            <input type="number" min="0" max="100" class="score-input input-kehadiran" value="${currentKehadiran}" placeholder="--" data-user="${s.username}">
+          </td>
+
+          <!-- Input Nilai Kuis CBT -->
+          <td style="text-align: center;">
+            <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
+              <input type="number" min="0" max="100" class="score-input input-kuis" value="${currentKuisScore}" placeholder="--" data-user="${s.username}">
+              <span class="cell-status">${statusBadgeHtml}</span>
+            </div>
+          </td>
+
+          <!-- Nilai Akhir Rapor -->
+          <td style="text-align: center; font-weight: 900; font-size: 15px; border-left: 2px solid #bfdbfe; border-right: 2px solid #bfdbfe;" class="cell-final-score">
+            ${finalScore}
+          </td>
+
+          <!-- Predikat -->
+          <td style="text-align: center;" class="cell-predikat">
+            ${predikat !== '-' ? `<span class="predikat-badge predikat-${predikat}">${predikat}</span>` : '<span style="color: #94a3b8;">-</span>'}
+          </td>
+
+          <!-- Catatan -->
+          <td>
+            <input type="text" class="form-control input-catatan" value="${note}" placeholder="Catatan penilaian rapor..." data-user="${s.username}" style="width: 100%; padding: 6px 10px; font-size: 12px; border: 1px solid var(--line); border-radius: var(--radius-xs);">
+          </td>
+
+          <!-- Aksi -->
+          <td style="text-align: center;" class="no-print">
+            <button class="btn btn-light btn-save-row" data-user="${s.username}" style="padding: 5px 10px; font-size: 11.5px; font-weight: 600;">
+              💾 Simpan
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      bindRowEvents();
+    }
+
+    function recalculateRow(u) {
+      const row = document.getElementById(`row_${u}`);
+      if (!row) return;
+
+      const valK = row.querySelector(".input-kehadiran").value.trim();
+      const valQ = row.querySelector(".input-kuis").value.trim();
+
+      const { finalScore, predikat } = computeFinalGrade(valK, valQ, bobotKehadiran, bobotKuis);
+
+      const cellFinal = row.querySelector(".cell-final-score");
+      const cellPred = row.querySelector(".cell-predikat");
+      cellFinal.textContent = finalScore;
+
+      if (predikat !== "-") {
+        cellPred.innerHTML = `<span class="predikat-badge predikat-${predikat}">${predikat}</span>`;
+      } else {
+        cellPred.innerHTML = '<span style="color: #94a3b8;">-</span>';
+      }
+    }
+
+    function bindRowEvents() {
+      // Event saat nilai kehadiran atau nilai kuis diketik
+      tbody.querySelectorAll("input.input-kehadiran, input.input-kuis").forEach(inp => {
+        inp.addEventListener("input", () => {
+          const u = inp.getAttribute("data-user");
+          recalculateRow(u);
+        });
+      });
+
+      tbody.querySelectorAll(".btn-save-row").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          const u = btn.getAttribute("data-user");
+          await saveRow(u, btn);
+        });
+      });
+    }
+
+    async function saveRow(username, btnEl) {
+      const row = document.getElementById(`row_${username}`);
+      const student = students.find(s => s.username === username);
+      const valK = row.querySelector(".input-kehadiran").value.trim();
+      const valQ = row.querySelector(".input-kuis").value.trim();
+      const catatan = row.querySelector(".input-catatan").value;
+
+      const { finalScore, predikat } = computeFinalGrade(valK, valQ, bobotKehadiran, bobotKuis);
+
+      if (btnEl) {
+        btnEl.disabled = true;
+        btnEl.textContent = "⏳ Menyimpan...";
+      }
+
+      const curExam = allExams.find(x => x.id === activeExamId);
+      const payload = {
+        username,
+        name: student.name,
+        kelas: student.kelas,
+        gender: student.gender,
+        examId: activeExamId,
+        examTitle: curExam ? curExam.judul : "Ujian Semester 1",
+        kehadiranManual: valK !== "" ? Number(valK) : null,
+        nilaiKuis: valQ !== "" ? Number(valQ) : null,
+        finalScore: finalScore !== "-" ? Number(finalScore) : 0,
+        predikat: predikat !== "-" ? predikat : "-",
+        bobotConfig: `${bobotKehadiran}% Absen + ${bobotKuis}% Kuis`,
+        catatan,
+        assessedBy: user.name
+      };
+
+      await saveStudentGrade(payload);
+      gradesCache[`grade_${username}`] = payload;
+
+      if (btnEl) {
+        btnEl.disabled = false;
+        btnEl.textContent = "✓ Tersimpan";
+        setTimeout(() => { btnEl.textContent = "💾 Simpan"; }, 1500);
+      }
+    }
+
+    // Tombol Tarik Nilai dari Kuis CBT
+    document.getElementById("btnSyncFromQuiz").onclick = async () => {
+      const btn = document.getElementById("btnSyncFromQuiz");
+      btn.disabled = true;
+      btn.textContent = "⏳ Menarik Nilai Kuis...";
+
+      try {
+        examResults = await getExamResults();
+        await syncAllGradesFromExam(activeExamId);
+        gradesCache = await getAllGrades();
+        renderTable();
+        alert("🎉 Berhasil menyinkronkan lembar jawaban kuis siswa ke tabel nilai akhir!");
+      } catch (err) {
+        alert("Gagal menyinkronkan nilai: " + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "⚡ Tarik Nilai Kuis CBT";
+      }
+    };
+
+    // Tombol Isi Kehadiran Sementara (Simulasi Hari Ini)
+    document.getElementById("btnSimulateAtt").onclick = () => {
+      if (!confirm("Isi nilai kehadiran sementara (90) untuk seluruh siswa hari ini sebelum rekapan manual dimasukkan?")) {
+        return;
+      }
+      const rows = tbody.querySelectorAll("tr");
+      rows.forEach(row => {
+        const inp = row.querySelector(".input-kehadiran");
+        if (inp && inp.value.trim() === "") {
+          inp.value = 90;
+          const u = inp.getAttribute("data-user");
+          recalculateRow(u);
+        }
+      });
+      alert("✓ Nilai kehadiran sementara (90) telah diisikan! Silakan klik 'Simpan Semua Nilai ke Firebase' jika ingin menyimpannya.");
+    };
+
+    // Save All Button
+    document.getElementById("btnSaveAllGrades").onclick = async () => {
+      const btn = document.getElementById("btnSaveAllGrades");
+      btn.disabled = true;
+      btn.textContent = "⏳ Menyimpan Seluruh Nilai ke Firebase...";
+
+      const rows = tbody.querySelectorAll("tr");
+      for (const row of rows) {
+        const u = row.id.replace("row_", "");
+        await saveRow(u, null);
+      }
+
+      btn.disabled = false;
+      btn.textContent = "✓ Semua Nilai Berhasil Disimpan!";
+      setTimeout(() => { btn.textContent = "💾 Simpan Semua Nilai ke Firebase"; }, 2000);
+      alert("🎉 Seluruh nilai akhir semester berhasil disimpan ke Cloud Firestore & LocalStorage!");
+    };
+
+    classFilter.onchange = renderTable;
+
+    // Excel Export via SheetJS
+    document.getElementById("btnExportExcel").onclick = () => {
+      const wb = XLSX.utils.book_new();
+      const exportData = [];
+
+      const filtered = classFilter.value === "ALL" 
+        ? students 
+        : students.filter(s => s.kelas === classFilter.value);
+
+      const curExam = allExams.find(x => x.id === activeExamId);
+
+      filtered.forEach((s, idx) => {
+        const row = document.getElementById(`row_${s.username}`);
+        const attVal = row ? row.querySelector(".input-kehadiran").value.trim() : "";
+        const kuisVal = row ? row.querySelector(".input-kuis").value.trim() : "";
+        const finalVal = row ? row.querySelector(".cell-final-score").textContent.trim() : "-";
+        const predVal = row ? row.querySelector(".cell-predikat").textContent.trim() : "-";
+        const noteVal = row ? row.querySelector(".input-catatan").value.trim() : "";
+
+        exportData.push({
+          "No": idx + 1,
+          "NIS/Akun": s.username,
+          "Nama Siswa": s.name,
+          "L/P": s.gender,
+          "Kelas": s.kelas,
+          "Kehadiran Manual 1 Sem": attVal !== "" ? Number(attVal) : "-",
+          "Nilai Kuis CBT": kuisVal !== "" ? Number(kuisVal) : "-",
+          "Nilai Akhir Semester": finalVal !== "-" ? Number(finalVal) : "-",
+          "Predikat": predVal,
+          "Formula Bobot": `${bobotKehadiran}% Absen + ${bobotKuis}% Kuis`,
+          "Catatan Rapor": noteVal
+        });
+      });
+
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      XLSX.utils.book_append_sheet(wb, ws, "Nilai Akhir Semester");
+      XLSX.writeFile(wb, `Nilai_Akhir_Semester_Pramuka_MAN4Banjar_${classFilter.value}.xlsx`);
+    };
+
+    // ----------------------------------------------------------------------
+    // FITUR: PRATINJAU FOTO REKAPAN (SPLIT-SCREEN)
+    // ----------------------------------------------------------------------
+    const photoViewerPanel = document.getElementById("photoViewerPanel");
+    const recapPhotoInput = document.getElementById("recapPhotoInput");
+    const previewRecapImg = document.getElementById("previewRecapImg");
+    const emptyPhotoNotice = document.getElementById("emptyPhotoNotice");
+    let currentZoom = 1;
+    let currentRotation = 0;
+
+    document.getElementById("btnTogglePhotoViewer").onclick = () => {
+      const isHidden = photoViewerPanel.style.display === "none";
+      photoViewerPanel.style.display = isHidden ? "block" : "none";
+      if (isHidden) photoViewerPanel.scrollIntoView({ behavior: "smooth" });
+    };
+
+    document.getElementById("btnClosePhotoPanel").onclick = () => {
+      photoViewerPanel.style.display = "none";
+    };
+
+    recapPhotoInput.onchange = (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          previewRecapImg.src = evt.target.result;
+          previewRecapImg.style.display = "inline-block";
+          emptyPhotoNotice.style.display = "none";
+          currentZoom = 1;
+          currentRotation = 0;
+          updatePhotoTransform();
+        };
+        reader.readAsDataURL(file);
+      }
+    };
+
+    function updatePhotoTransform() {
+      previewRecapImg.style.transform = `scale(${currentZoom}) rotate(${currentRotation}deg)`;
+    }
+
+    document.getElementById("btnZoomInPhoto").onclick = () => {
+      currentZoom += 0.25;
+      updatePhotoTransform();
+    };
+
+    document.getElementById("btnZoomOutPhoto").onclick = () => {
+      if (currentZoom > 0.4) currentZoom -= 0.25;
+      updatePhotoTransform();
+    };
+
+    document.getElementById("btnRotatePhoto").onclick = () => {
+      currentRotation = (currentRotation + 90) % 360;
+      updatePhotoTransform();
+    };
+
+    // ----------------------------------------------------------------------
+    // FITUR: TEMPEL / IMPORT REKAPAN MANUAL
+    // ----------------------------------------------------------------------
+    const importModal = document.getElementById("importAttModal");
+    let matchedParsedData = [];
+
+    document.getElementById("btnOpenImportModal").onclick = () => {
+      importModal.style.display = "flex";
+      document.getElementById("pasteAttText").value = "";
+      document.getElementById("parsePreviewArea").style.display = "none";
+      document.getElementById("btnApplyParsedAttendance").style.display = "none";
+    };
+
+    document.getElementById("btnCloseImportModal").onclick = () => {
+      importModal.style.display = "none";
+    };
+
+    // Tombol Analisis Teks Rekapan
+    document.getElementById("btnPreviewParse").onclick = () => {
+      const text = document.getElementById("pasteAttText").value.trim();
+      if (!text) {
+        alert("Silakan tempel teks rekapan manual absensi terlebih dahulu.");
+        return;
+      }
+
+      matchedParsedData = parseAttendancePaste(text, students);
+
+      const previewArea = document.getElementById("parsePreviewArea");
+      const summaryText = document.getElementById("parseResultSummary");
+      const previewList = document.getElementById("parsePreviewList");
+      const btnApply = document.getElementById("btnApplyParsedAttendance");
+
+      if (matchedParsedData.length === 0) {
+        alert("Tidak ada nama siswa atau nilai kehadiran yang cocok terdeteksi. Pastikan memuat nama siswa dan nilai angka (misal: 'Ahmad Sauqi: 95').");
+        return;
+      }
+
+      previewArea.style.display = "block";
+      summaryText.textContent = `✓ Berhasil mencocokkan ${matchedParsedData.length} dari ${students.length} siswa!`;
+      previewList.innerHTML = matchedParsedData.map((m, i) => `
+        <div style="padding: 3px 0; border-bottom: 1px dashed #bbf7d0;">
+          ${i + 1}. <b>${m.name}</b> (${m.username}) &rarr; Nilai Kehadiran: <b style="color: #15803d;">${m.score}</b>
+        </div>
+      `).join("");
+
+      btnApply.style.display = "inline-flex";
+    };
+
+    // Terapkan ke Tabel Nilai
+    document.getElementById("btnApplyParsedAttendance").onclick = () => {
+      if (matchedParsedData.length === 0) return;
+
+      let applied = 0;
+      matchedParsedData.forEach(item => {
+        const row = document.getElementById(`row_${item.username}`);
+        if (row) {
+          const inp = row.querySelector(".input-kehadiran");
+          if (inp) {
+            inp.value = item.score;
+            recalculateRow(item.username);
+            applied++;
+          }
+        }
+      });
+
+      alert(`🎉 Sukses! Sebanyak ${applied} nilai kehadiran manual berhasil diterapkan ke tabel siswa! Silakan klik "Simpan Semua Nilai ke Firebase" untuk menyimpan permanen.`);
+      importModal.style.display = "none";
+    };
+
+    // Parser cerdas teks rekapan manual
+    function parseAttendancePaste(text, allStudents) {
+      const lines = text.split('\n');
+      const matched = [];
+      const norm = s => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+
+        // Cari rasio misal 16/16 atau 15/16
+        let score = null;
+        const ratioMatch = trimmed.match(/(\d+)\s*\/\s*(\d+)/);
+        if (ratioMatch) {
+          const hadir = parseInt(ratioMatch[1]);
+          const total = parseInt(ratioMatch[2]);
+          if (total > 0) score = Math.round((hadir / total) * 100);
+        }
+
+        // Cari angka persentase atau angka nilai 50 - 100
+        if (score === null) {
+          const numMatches = trimmed.match(/(?:^|[\s,:;=\t])(\d{1,3})(?:%|\b|$)/g);
+          if (numMatches) {
+            for (let i = numMatches.length - 1; i >= 0; i--) {
+              const val = parseInt(numMatches[i].replace(/[^0-9]/g, ''));
+              if (val >= 0 && val <= 100 && val !== parseInt(trimmed.substring(0, 3))) {
+                score = val;
+                break;
+              }
+            }
+          }
+        }
+
+        // Cari kecocokan nama siswa
+        let foundStudent = null;
+        const lineNorm = norm(trimmed);
+        for (const s of allStudents) {
+          const sNorm = norm(s.name);
+          const uNorm = norm(s.username);
+          if (lineNorm.includes(sNorm) || (uNorm.length > 3 && lineNorm.includes(uNorm))) {
+            foundStudent = s;
+            break;
+          }
+        }
+
+        if (foundStudent && score !== null) {
+          if (!matched.some(m => m.username === foundStudent.username)) {
+            matched.push({ username: foundStudent.username, name: foundStudent.name, score });
+          }
+        }
+      }
+
+      return matched;
+    }
+
+    init();
+  </script>
+</body>
+</html>

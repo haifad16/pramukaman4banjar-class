@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Pramuka MAN 4 Banjar — Classroom & Presensi Digital</title>
+  <link rel="icon" href="assets/icons/logo_pramuka_man4banjar.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <!-- Bootstrap 5.3 Framework -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+  <link rel="stylesheet" href="assets/css/style.css">
+  <style>
+    .feature-card:hover, .hover-lift:hover {
+      transform: translateY(-2px);
+      border-color: var(--primary-light) !important;
+      box-shadow: var(--shadow-lg);
+    }
+    .hover-lift {
+      transition: all 0.2s ease;
+    }
+  </style>
+</head>
+<body class="bg-light">
+
+  <!-- Topbar Header -->
+  <header class="topbar" id="mainTopbar">
+    <a href="index.html" class="brand">
+      <div class="brand-mark">
+        <img src="assets/icons/logo_man4banjar.png" alt="Logo MAN 4 Banjar" style="height:38px; width:auto; max-height:38px; object-fit:contain; display:block;">
+        <img src="assets/icons/logo_pramuka_man4banjar.png" alt="Logo Pramuka MAN 4 Banjar" style="height:38px; width:38px; object-fit:contain; display:block; border-radius:50%;">
+      </div>
+      <div class="brand-text">
+        <span class="brand-title">PRAMUKA MAN 4 BANJAR</span>
+        <span class="brand-subtitle">GUDEP 01.095 - 01.096 &bull; PRESENSI &amp; CLASSROOM</span>
+      </div>
+    </a>
+  </header>
+
+  <main class="container py-4" style="max-width: 1140px;">
+
+    <!-- VIEW: JIKA BELUM LOGIN -->
+    <div id="loggedOutView" style="display: none;">
+      <div class="card border-0 shadow-lg p-4 mx-auto" style="max-width: 440px; border-radius: var(--radius-lg); margin-top: 24px;">
+        <div class="text-center mb-4">
+          <div class="d-inline-flex gap-2 mb-3">
+            <img src="assets/icons/logo_man4banjar.png" alt="Logo MAN 4" style="height: 52px;">
+            <img src="assets/icons/logo_pramuka_man4banjar.png" alt="Logo Pramuka" style="height: 52px;">
+          </div>
+          <h2 class="h5 fw-bold mb-1 text-dark">PRAMUKA MAN 4 BANJAR</h2>
+          <p class="small text-muted mb-2">Portal Presensi, Pramuka Classroom &amp; Nilai Akhir</p>
+          <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle px-2 py-1">
+            ⚡ Google Firebase Cloud Firestore
+          </span>
+        </div>
+
+        <form id="loginForm">
+          <div class="mb-3">
+            <label for="loginIdentifier" class="form-label fw-semibold small text-dark mb-1">
+              Nama Lengkap atau Akun Pengguna
+            </label>
+            <input type="text" id="loginIdentifier" class="form-control" list="studentDatalist" placeholder="Ketik nama atau pilih dari daftar..." required>
+            <datalist id="studentDatalist"></datalist>
+            <div class="form-text small text-muted">Mendukung autocomplete untuk 113 siswa &amp; dewan pelatih.</div>
+          </div>
+
+          <div class="mb-3">
+            <label for="loginPassword" class="form-label fw-semibold small text-dark mb-1">
+              Kata Sandi
+            </label>
+            <input type="password" id="loginPassword" class="form-control" placeholder="Masukkan kata sandi akun..." required>
+            <div class="form-text small text-muted">Masukkan kata sandi akun Pramuka Anda.</div>
+          </div>
+
+          <!-- KODE KEAMANAN (CAPTCHA ANTI-BOT) -->
+          <div class="mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <label for="captchaInput" class="form-label fw-semibold small text-dark mb-0">
+                Kode Keamanan (Captcha)
+              </label>
+              <button type="button" id="btnRefreshCaptcha" class="btn btn-link btn-sm text-decoration-none p-0 fw-semibold d-inline-flex align-items-center gap-1">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+                Acak Kode
+              </button>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <div class="border rounded bg-light overflow-hidden shadow-sm" style="height: 42px; display: flex; align-items: center; justify-content: center;">
+                <canvas id="captchaCanvas" width="130" height="40" style="cursor: pointer; display: block;" title="Klik gambar untuk ganti kode acak"></canvas>
+              </div>
+              <input type="text" id="captchaInput" class="form-control fw-bold text-uppercase" placeholder="Ketik kode" required maxlength="6" autocomplete="off" style="letter-spacing: 2px;">
+            </div>
+            <div class="form-text small text-muted mt-1">Ketik 5 karakter di atas untuk verifikasi anti-bot.</div>
+          </div>
+
+          <div id="loginError" class="alert alert-danger py-2 px-3 small mb-3" style="display: none;"></div>
+
+          <button type="submit" class="btn btn-primary w-100 py-2 fw-bold d-flex align-items-center justify-content-center gap-2">
+            <span>Masuk ke Akun Pramuka</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- VIEW: JIKA SUDAH LOGIN -->
+    <div id="loggedInView" style="display: none;">
+
+      <!-- Executive Navy Banner -->
+      <section class="office-clock-widget">
+        <div class="clock-info-side">
+          <p class="eyebrow" style="color: #93c5fd; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+            GUDEP PANGKALAN MAN 4 BANJAR &bull; EKSTRAKURIKULER PRAMUKA
+          </p>
+          <h2 id="bannerUserName">Selamat Datang</h2>
+          <p>
+            <span id="bannerUserRole">Anggota Pramuka</span>
+            &bull;
+            <span>Jam Latihan: <b>06:30 – 17:30 WITA</b></span>
+          </p>
+        </div>
+        <div class="clock-display-side">
+          <div class="digital-time" id="dashboardLiveTime">--:--:--</div>
+          <div class="digital-zone" id="dashboardLiveDate">November 2026 &bull; WITA</div>
+        </div>
+      </section>
+
+      <!-- 2 Cards Layout (Bootstrap 5 Grid) -->
+      <div class="row g-4 mt-1">
+        
+        <!-- Left: Presensi Mandiri -->
+        <div class="col-12 col-lg-6">
+          <section class="card h-100 shadow-sm border-0 p-3">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h2 class="h6 fw-bold mb-0 text-dark">Presensi Kehadiran Mandiri</h2>
+              <span class="status-pill neutral" id="presensiStatusPill">● Belum Presensi Hari Ini</span>
+            </div>
+
+            <div class="attendance-times">
+              <div class="att-box">
+                <span class="label">PRESENSI MASUK LATIHAN</span>
+                <span class="time" id="userCheckInTime">-- : --</span>
+                <span class="note" id="userCheckInNote">Belum tercatat</span>
+              </div>
+              <div class="att-box">
+                <span class="label">PRESENSI SELESAI LATIHAN</span>
+                <span class="time" id="userCheckOutTime">-- : --</span>
+                <span class="note" id="userCheckOutNote">Belum tercatat</span>
+              </div>
+            </div>
+
+            <a href="attendance.html" class="btn btn-primary w-100 py-3 fw-bold mt-3 d-flex align-items-center justify-content-center text-decoration-none shadow-sm">
+              <span>&rarr; Lakukan Presensi Hadir (Kamera &amp; GPS)</span>
+            </a>
+
+            <div class="d-flex gap-2 mt-2">
+              <a href="tarikan_data.html" class="btn btn-light flex-fill text-decoration-none small">
+                📄 Lihat Tarikan Data Resmi
+              </a>
+              <a href="classroom.html" class="btn btn-light flex-fill text-decoration-none small">
+                📚 Buka Classroom
+              </a>
+            </div>
+          </section>
+        </div>
+
+        <!-- Right: Jadwal 4 Pertemuan (November 2026) -->
+        <div class="col-12 col-lg-6">
+          <section class="card h-100 shadow-sm border-0 p-3">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h2 class="h6 fw-bold mb-0 text-dark">Jadwal 4 Pertemuan (November 2026)</h2>
+              <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle fw-bold">● Kamis Sore</span>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table table-sm table-hover align-middle mb-0" style="font-size: 12.5px;">
+                <thead class="table-light">
+                  <tr>
+                    <th style="width: 45px; text-align: center;">PTM</th>
+                    <th style="width: 155px;">HARI, TANGGAL</th>
+                    <th>MATERI POKOK LATIHAN</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="text-center fw-bold">1</td>
+                    <td>Kamis, 5 November 2026</td>
+                    <td class="fw-semibold">Pengenalan &amp; Orientasi Penegak Bantara</td>
+                  </tr>
+                  <tr>
+                    <td class="text-center fw-bold">2</td>
+                    <td>Kamis, 12 November 2026</td>
+                    <td class="fw-semibold">Tali Temali, Pionering &amp; Simpul Dasar</td>
+                  </tr>
+                  <tr>
+                    <td class="text-center fw-bold">3</td>
+                    <td>Kamis, 19 November 2026</td>
+                    <td class="fw-semibold">Semaphore, Sandi Morse &amp; Kompas Navigasi</td>
+                  </tr>
+                  <tr>
+                    <td class="text-center fw-bold">4</td>
+                    <td>Kamis, 26 November 2026</td>
+                    <td class="fw-semibold">PBB Variasi, Formasi Barisan &amp; Upacara</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="d-flex justify-content-between small text-muted mt-3 pt-2 border-top">
+              <span>Pelatih: <b>M. Haifad Ilham &amp; Aulia Ika Noorjannah</b></span>
+              <span>Pangkalan MAN 4 Banjar</span>
+            </div>
+          </section>
+        </div>
+
+      </div>
+
+      <!-- Feature Navigation Cards (Bootstrap 5 Grid) -->
+      <div class="mt-4">
+        <h3 class="h6 fw-bold text-dark mb-3">
+          Layanan Ekstrakurikuler Terpadu (Google Firebase Cloud)
+        </h3>
+        <div class="row g-3">
+          
+          <div class="col-12 col-md-6 col-lg-4">
+            <a href="classroom.html" class="feature-card h-100 text-decoration-none text-dark shadow-sm">
+              <div class="feature-icon">📚</div>
+              <div>
+                <strong class="text-primary d-block">Pramuka Classroom</strong>
+                <p class="small text-muted mb-0 mt-1">Modul pembelajaran 4 pertemuan, tugas SKU Bantara, dan pengumpulan tugas online.</p>
+              </div>
+            </a>
+          </div>
+
+          <div class="col-12 col-md-6 col-lg-4">
+            <a href="ujian.html" class="feature-card h-100 text-decoration-none text-dark shadow-sm" style="border-color: var(--primary-light) !important;">
+              <div class="feature-icon" style="background: #eff6ff; color: #1e3a8a;">🎯</div>
+              <div>
+                <strong class="text-primary d-block">Kuis CBT &amp; Asesmen Mandiri</strong>
+                <p class="small text-muted mb-0 mt-1">Upload soal &amp; kunci jawaban, kerjakan ujian online, dan nilai langsung keluar otomatis.</p>
+              </div>
+            </a>
+          </div>
+
+          <div class="col-12 col-md-6 col-lg-4">
+            <a href="attendance.html" class="feature-card h-100 text-decoration-none text-dark shadow-sm">
+              <div class="feature-icon">📍</div>
+              <div>
+                <strong class="text-primary d-block">Presensi GPS &amp; Tanda Tangan</strong>
+                <p class="small text-muted mb-0 mt-1">Verifikasi geofencing pangkalan MAN 4 Banjar, biometrik kamera, dan tanda tangan digital.</p>
+              </div>
+            </a>
+          </div>
+
+          <div class="col-12 col-md-6 col-lg-4">
+            <a href="grading.html" class="feature-card h-100 text-decoration-none text-dark shadow-sm" id="cardGradingNav">
+              <div class="feature-icon">📊</div>
+              <div>
+                <strong class="text-primary d-block">Nilai Akhir Semester (Rapor)</strong>
+                <p class="small text-muted mb-0 mt-1">Kombinasi nilai kuis CBT dan absensi kehadiran 1 semester untuk buku rapor madrasah.</p>
+              </div>
+            </a>
+          </div>
+
+          <div class="col-12 col-md-6 col-lg-4">
+            <a href="tarikan_data.html" class="feature-card h-100 text-decoration-none text-dark shadow-sm">
+              <div class="feature-icon">🖨️</div>
+              <div>
+                <strong class="text-primary d-block">Tarikan Data Resmi</strong>
+                <p class="small text-muted mb-0 mt-1">Format cetak PDF Kop Kemenag &amp; MAN 4 Banjar lengkap dengan tanda tangan pengesahan.</p>
+              </div>
+            </a>
+          </div>
+
+          <div class="col-12 col-md-6 col-lg-4">
+            <div class="feature-card h-100 shadow-sm" style="cursor: pointer;" id="btnSyncMaster">
+              <div class="feature-icon">☁️</div>
+              <div>
+                <strong class="text-primary d-block">Sinkronisasi Master Firebase</strong>
+                <p class="small text-muted mb-0 mt-1">Perbarui data 113 siswa, 4 materi pertemuan, dan pengaturan pangkalan di Cloud Firestore.</p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <footer class="footer">
+    <div class="footer-compliance-pill">
+      <span>🛡️ Terkoneksi ke Google Firebase Project: pramuka-man4banjar-class</span>
+    </div>
+    <div style="margin-top: 4px;">Pangkalan MAN 4 Banjar &bull; Gugus Depan Gerakan Pramuka 01.095 - 01.096</div>
+    <div>&copy; 2026 Gugus Depan MAN 4 Banjar. Seluruh hak cipta dilindungi undang-undang.</div>
+  </footer>
+
+  <!-- Bootstrap 5.3 Bundle JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+
+  <!-- Scripts -->
+  <script type="module">
+    import { PRAMUKA_SEED_DATA } from "./assets/js/pramuka-seed-data.js?v=2";
+    import { 
+      getCurrentUser, 
+      loginUser, 
+      renderTopbar, 
+      startLiveClock,
+      syncMasterDataToFirestore,
+      getAllAttendances
+    } from "./assets/js/app.js?v=21";
+
+    // Setup autocomplete datalist
+    const datalist = document.getElementById("studentDatalist");
+    if (datalist) {
+      PRAMUKA_SEED_DATA.users.forEach(u => {
+        const opt = document.createElement("option");
+        opt.value = u.name;
+        opt.label = `${u.role.toUpperCase()} • ${u.kelas || 'Gudep'} (${u.username})`;
+        datalist.appendChild(opt);
+      });
+    }
+
+    // CAPTCHA Generator Logic
+    let currentCaptchaText = "";
+
+    function generateCaptcha() {
+      const chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"; // exclude 0, O, 1, I
+      let text = "";
+      for (let i = 0; i < 5; i++) {
+        text += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      currentCaptchaText = text;
+
+      const canvas = document.getElementById("captchaCanvas");
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      const w = canvas.width;
+      const h = canvas.height;
+
+      // Background gradient
+      const bgGrad = ctx.createLinearGradient(0, 0, w, h);
+      bgGrad.addColorStop(0, "#f8fafc");
+      bgGrad.addColorStop(1, "#e2e8f0");
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, w, h);
+
+      // Random noise lines
+      for (let i = 0; i < 5; i++) {
+        ctx.strokeStyle = `hsl(${Math.floor(Math.random() * 360)}, 45%, 65%)`;
+        ctx.lineWidth = 1.3;
+        ctx.beginPath();
+        ctx.moveTo(Math.random() * w, Math.random() * h);
+        ctx.lineTo(Math.random() * w, Math.random() * h);
+        ctx.stroke();
+      }
+
+      // Random noise dots
+      for (let i = 0; i < 35; i++) {
+        ctx.fillStyle = `rgba(${Math.floor(Math.random() * 150)}, ${Math.floor(Math.random() * 150)}, ${Math.floor(Math.random() * 150)}, 0.35)`;
+        ctx.beginPath();
+        ctx.arc(Math.random() * w, Math.random() * h, 1.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Draw characters
+      const colors = ["#1e3a8a", "#0f766e", "#b45309", "#4338ca", "#0369a1", "#9a3412"];
+      for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        ctx.save();
+        const x = 16 + i * 22;
+        const y = 27 + (Math.random() * 4 - 2);
+        const angle = (Math.random() * 26 - 13) * Math.PI / 180;
+        ctx.translate(x, y);
+        ctx.rotate(angle);
+        ctx.font = "bold 21px 'JetBrains Mono', monospace, sans-serif";
+        ctx.fillStyle = colors[i % colors.length];
+        ctx.fillText(char, 0, 0);
+        ctx.restore();
+      }
+
+      const input = document.getElementById("captchaInput");
+      if (input) input.value = "";
+    }
+
+    const btnRefresh = document.getElementById("btnRefreshCaptcha");
+    if (btnRefresh) btnRefresh.onclick = generateCaptcha;
+    const canvasEl = document.getElementById("captchaCanvas");
+    if (canvasEl) canvasEl.onclick = generateCaptcha;
+
+    // Handle Login Submit
+    const loginForm = document.getElementById("loginForm");
+    const loginError = document.getElementById("loginError");
+    loginForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      loginError.style.display = "none";
+      const idVal = document.getElementById("loginIdentifier").value;
+      const passVal = document.getElementById("loginPassword").value;
+      const captchaInp = document.getElementById("captchaInput");
+      const captchaVal = (captchaInp ? captchaInp.value : "").trim().toUpperCase();
+
+      if (!captchaVal || captchaVal !== currentCaptchaText) {
+        loginError.textContent = "Kode keamanan (Captcha) salah atau belum diisi. Silakan periksa kembali kode di atas.";
+        loginError.style.display = "block";
+        generateCaptcha();
+        if (captchaInp) captchaInp.focus();
+        return;
+      }
+
+      try {
+        await loginUser(idVal, passVal);
+        checkSession();
+      } catch (err) {
+        loginError.textContent = err.message;
+        loginError.style.display = "block";
+        generateCaptcha();
+      }
+    });
+
+    // Check Current User Session
+    async function checkSession() {
+      const user = getCurrentUser();
+      const loggedInView = document.getElementById("loggedInView");
+      const loggedOutView = document.getElementById("loggedOutView");
+
+      if (user) {
+        loggedOutView.style.display = "none";
+        loggedInView.style.display = "block";
+        renderTopbar("beranda");
+
+        // Set Banner info
+        document.getElementById("bannerUserName").textContent = `Selamat Datang, ${user.name}`;
+        let roleStr = "Anggota Pramuka: Kelas " + (user.kelas || "X");
+        if (user.role === "pelatih") roleStr = "Penugasan: Pelatih Ekstrakurikuler Pramuka";
+        else if (user.role === "pembina") roleStr = "Penugasan: Pembina Pramuka MAN 4 Banjar";
+        else if (user.role === "admin") roleStr = "Peran: Administrator Gugus Depan";
+        document.getElementById("bannerUserRole").innerHTML = `<b>${roleStr}</b>`;
+
+        // Check user attendance today
+        const attendances = await getAllAttendances();
+        const userToday = attendances.find(a => a.username === user.username);
+        if (userToday) {
+          document.getElementById("presensiStatusPill").className = "status-pill success";
+          document.getElementById("presensiStatusPill").textContent = "● Hadir Tercatat";
+          document.getElementById("userCheckInTime").textContent = userToday.checkInTime || "--:--";
+          document.getElementById("userCheckInNote").textContent = "Jarak: ±" + (userToday.distance || 0) + " m";
+          if (userToday.checkOutTime) {
+            document.getElementById("userCheckOutTime").textContent = userToday.checkOutTime;
+            document.getElementById("userCheckOutNote").textContent = "Presensi Selesai";
+          }
+        }
+
+        // Live Clock
+        startLiveClock("dashboardLiveTime");
+        const days = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+        const months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+        const now = new Date();
+        document.getElementById("dashboardLiveDate").textContent = 
+          `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()} • WITA`;
+
+      } else {
+        loggedOutView.style.display = "block";
+        loggedInView.style.display = "none";
+        renderTopbar("");
+        generateCaptcha();
+      }
+    }
+
+    // Sync button
+    const btnSync = document.getElementById("btnSyncMaster");
+    if (btnSync) {
+      btnSync.addEventListener("click", async () => {
+        btnSync.style.opacity = "0.5";
+        btnSync.querySelector("strong").textContent = "Menyinkronkan ke Firebase...";
+        const ok = await syncMasterDataToFirestore(true);
+        alert(ok ? "Berhasil menyinkronkan 113 siswa, 4 pertemuan, dan pejabat ke Cloud Firestore!" : "Koneksi offline atau izin firestore sedang diproses.");
+        btnSync.style.opacity = "1";
+        btnSync.querySelector("strong").textContent = "Sinkronisasi Master Firebase";
+      });
+    }
+
+    // Auto-sync in background on first load
+    syncMasterDataToFirestore(false);
+
+    checkSession();
+  </script>
+</body>
+</html>
+
