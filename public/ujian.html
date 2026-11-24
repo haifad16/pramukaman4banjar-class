@@ -362,6 +362,10 @@
           <strong id="startQuestionCount" style="color: #2563eb;">30 Butir Pilihan Ganda (A - D)</strong>
         </div>
         <div style="display: flex; justify-content: space-between; margin-bottom: 9px; padding-bottom: 8px; border-bottom: 1px dashed var(--line);">
+          <span style="color: var(--muted);">Batas Waktu Pengerjaan:</span>
+          <strong id="startDurationText" style="color: #dc2626;">⏱️ 60 Menit (Hitung Mundur)</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 9px; padding-bottom: 8px; border-bottom: 1px dashed var(--line);">
           <span style="color: var(--muted);">Standar Kelulusan (KKM):</span>
           <strong style="color: #059669;">75 Poin (Predikat B)</strong>
         </div>
@@ -380,6 +384,21 @@
 
     <!-- CONTAINER PENGERJAAN SOAL -->
     <div id="examWorkContainer" style="position: relative;">
+      <!-- Sticky Countdown Timer Header -->
+      <div id="examStickyTimer" class="sticky-top bg-white shadow-sm border p-3 mb-4 rounded-3 d-flex justify-content-between align-items-center" style="top: 14px; z-index: 1020;">
+        <div class="d-flex align-items-center gap-2">
+          <span class="badge bg-danger text-white px-2 py-1 small fw-bold">● CBT AKTIF</span>
+          <span id="timerExamTitle" class="fw-bold text-dark d-none d-sm-inline">Ujian Semester 1</span>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <span class="small text-muted fw-semibold d-none d-md-inline">SISA WAKTU:</span>
+          <div id="timerBadge" class="badge bg-primary px-3 py-2 font-monospace d-inline-flex align-items-center gap-2 shadow-sm" style="font-size: 16px !important; letter-spacing: 1px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span id="examTimerDisplay">60:00</span>
+          </div>
+        </div>
+      </div>
+
       <!-- Dynamic Watermark Overlay (Anti-Foto Layar HP) -->
       <div id="examWatermarkOverlay" class="exam-watermark-overlay"></div>
 
@@ -609,7 +628,7 @@ KUNCI JAWABAN:
       rejectRemedialRequest,
       getStudentRemedialStatus,
       extractQuestionAndOptions
-    } from "./assets/js/app.js?v=21";
+    } from "./assets/js/app.js?v=22";
 
     const user = requireAuth();
     if (user) {
@@ -635,6 +654,8 @@ KUNCI JAWABAN:
     let currentExam = null;
     let studentAnswers = {};
     let parsedData = null;
+    let examTimeRemaining = 0;
+    let examCountdownInterval = null;
 
     // Load available exams
     async function loadExamsList() {
@@ -656,7 +677,82 @@ KUNCI JAWABAN:
       }
     }
 
+    // CBT Countdown Timer Functions
+    function startExamCountdown(durationMinutes = 60) {
+      stopExamCountdown();
+      examTimeRemaining = Math.max(1, durationMinutes) * 60;
+
+      const timerSticky = document.getElementById("examStickyTimer");
+      const timerBadge = document.getElementById("timerBadge");
+      const timerDisplay = document.getElementById("examTimerDisplay");
+      const titleEl = document.getElementById("timerExamTitle");
+
+      if (timerSticky) timerSticky.style.display = "flex";
+      if (titleEl && currentExam) titleEl.textContent = currentExam.judul;
+
+      function updateTimerUI() {
+        const minutes = Math.floor(examTimeRemaining / 60);
+        const seconds = examTimeRemaining % 60;
+        const formatted = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        if (timerDisplay) timerDisplay.textContent = formatted;
+
+        if (timerBadge) {
+          if (examTimeRemaining <= 300) {
+            timerBadge.className = "badge bg-danger text-white px-3 py-2 font-monospace d-inline-flex align-items-center gap-2 shadow-sm animate__animated animate__pulse animate__infinite";
+          } else if (examTimeRemaining <= 600) {
+            timerBadge.className = "badge bg-warning text-dark px-3 py-2 font-monospace d-inline-flex align-items-center gap-2 shadow-sm";
+          } else {
+            timerBadge.className = "badge bg-primary px-3 py-2 font-monospace d-inline-flex align-items-center gap-2 shadow-sm";
+          }
+        }
+      }
+
+      updateTimerUI();
+
+      examCountdownInterval = setInterval(() => {
+        examTimeRemaining--;
+        if (examTimeRemaining <= 0) {
+          stopExamCountdown();
+          if (timerDisplay) timerDisplay.textContent = "00:00";
+          playExamTimeUpSound();
+          alert("⏱️ PERHATIAN: Waktu ujian CBT telah habis!\n\nSeluruh lembar jawaban Anda akan otomatis dikumpulkan dan dinilai ke sistem sekarang.");
+          finishExamCalculation(true);
+        } else {
+          updateTimerUI();
+        }
+      }, 1000);
+    }
+
+    function stopExamCountdown() {
+      if (examCountdownInterval) {
+        clearInterval(examCountdownInterval);
+        examCountdownInterval = null;
+      }
+      const timerSticky = document.getElementById("examStickyTimer");
+      if (timerSticky) timerSticky.style.display = "none";
+    }
+
+    function playExamTimeUpSound() {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(520, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(260, ctx.currentTime + 0.4);
+        gain.gain.setValueAtTime(0.3, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.4);
+      } catch (e) {}
+    }
+
     async function selectExam(examId) {
+      stopExamCountdown();
       currentExam = allExams.find(e => e.id === examId);
       studentAnswers = {};
 
@@ -706,6 +802,8 @@ KUNCI JAWABAN:
           `Mata Pelajaran: ${currentExam.mapel || 'Kepramukaan'} • Total ${currentExam.questions.length} Butir Pilihan Ganda`;
         document.getElementById("startStudentName").textContent = `${user ? user.name : 'Peserta'} (${user ? (user.kelas || 'Gudep') : ''})`;
         document.getElementById("startQuestionCount").textContent = `${currentExam.questions.length} Butir Pilihan Ganda (A - D)`;
+        const durText = document.getElementById("startDurationText");
+        if (durText) durText.textContent = `⏱️ ${currentExam.durasi || 60} Menit (Hitung Mundur)`;
       } else {
         document.getElementById("examWorkContainer").style.display = "block";
       }
@@ -729,6 +827,10 @@ KUNCI JAWABAN:
           const secBadge = document.getElementById("examSecurityBadge");
           if (secBadge) secBadge.style.display = "inline-flex";
         }
+
+        // Jalankan Batas Waktu Hitung Mundur CBT
+        const durasiMenit = (currentExam && currentExam.durasi) ? currentExam.durasi : 60;
+        startExamCountdown(durasiMenit);
 
         work.scrollIntoView({ behavior: "smooth" });
       };
@@ -817,20 +919,25 @@ KUNCI JAWABAN:
     }
 
     // Finish & Calculate Score Immediately (Style PKBM Mandiri)
-    document.getElementById("btnFinishExam").addEventListener("click", async () => {
-      // Nonaktifkan proteksi seleksi setelah selesai mengumpulkan
-      if (document.body) document.body.classList.remove("secure-exam-mode");
-      const secBadgeFinish = document.getElementById("examSecurityBadge");
-      if (secBadgeFinish) secBadgeFinish.style.display = "none";
+    async function finishExamCalculation(isAutoSubmit = false) {
+      if (!currentExam) return;
 
       const totalQ = currentExam.questions.length;
       const answeredCount = Object.keys(studentAnswers).length;
 
-      if (answeredCount < totalQ) {
+      if (!isAutoSubmit && answeredCount < totalQ) {
         if (!confirm(`Anda baru menjawab ${answeredCount} dari ${totalQ} soal. Yakin ingin mengumpulkan sekarang?`)) {
           return;
         }
       }
+
+      // Hentikan Countdown Timer
+      stopExamCountdown();
+
+      // Nonaktifkan proteksi seleksi setelah selesai mengumpulkan
+      if (document.body) document.body.classList.remove("secure-exam-mode");
+      const secBadgeFinish = document.getElementById("examSecurityBadge");
+      if (secBadgeFinish) secBadgeFinish.style.display = "none";
 
       // Hitung Jawaban Benar
       let correct = 0;
@@ -899,6 +1006,10 @@ KUNCI JAWABAN:
       if (isPelatihOnly) {
         loadTrainerRemedialSection();
       }
+    }
+
+    document.getElementById("btnFinishExam").addEventListener("click", () => {
+      finishExamCalculation(false);
     });
 
     let lastCompletedScore = 0;
@@ -1147,6 +1258,8 @@ KUNCI JAWABAN:
       document.getElementById("examWorkContainer").style.display = "block";
       studentAnswers = {};
       renderQuestions();
+      const durasiMenit = (currentExam && currentExam.durasi) ? currentExam.durasi : 60;
+      startExamCountdown(durasiMenit);
       window.scrollTo({ top: 0, behavior: "smooth" });
     };
 
