@@ -244,10 +244,13 @@
 
       <div id="trainerActions" style="display: none;">
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          <button id="btnOpenDurationModal" class="btn btn-light" style="font-weight: 700; font-size: 13px; padding: 10px 18px; color: #047857; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+          <button id="btnOpenKeysModal" class="btn btn-light" style="font-weight: 700; font-size: 13px; padding: 10px 16px; color: #b45309; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+            🔑 Kelola Kunci &amp; Hitung Ulang
+          </button>
+          <button id="btnOpenDurationModal" class="btn btn-light" style="font-weight: 700; font-size: 13px; padding: 10px 16px; color: #047857; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
             ⏱️ Atur Batas Waktu CBT
           </button>
-          <button id="btnOpenUploadModal" class="btn btn-light" style="font-weight: 700; font-size: 13px; padding: 10px 18px; color: #1e3a8a; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+          <button id="btnOpenUploadModal" class="btn btn-light" style="font-weight: 700; font-size: 13px; padding: 10px 16px; color: #1e3a8a; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
             ⚡ Upload Naskah Soal &amp; Kunci
           </button>
         </div>
@@ -579,6 +582,38 @@
       </div>
     </div>
 
+    <!-- MODAL KELOLA KUNCI JAWABAN & HITUNG ULANG NILAI (KHUSUS PELATIH) -->
+    <div class="modal-overlay" id="manageKeysModal" style="display: none;">
+      <div class="modal-card-custom" style="max-width: 780px; max-height: 90vh; display: flex; flex-direction: column;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line); padding-bottom: 12px; margin-bottom: 12px;">
+          <div>
+            <h3 style="font-size: 17px; font-weight: 800; margin: 0; color: var(--text-main);">
+              🔑 Kelola Kunci Jawaban &amp; Hitung Ulang Nilai Siswa
+            </h3>
+            <p style="font-size: 12px; color: var(--muted); margin: 2px 0 0;">
+              Verifikasi/koreksi kunci jawaban atau teks opsi pada paket soal aktif, lalu hitung ulang nilai siswa otomatis.
+            </p>
+          </div>
+          <button type="button" id="btnCloseKeysModal" class="btn btn-light" style="padding: 4px 10px;">✕</button>
+        </div>
+
+        <div style="margin-bottom: 10px; font-size: 13px; font-weight: 700; color: #1e3a8a;" id="keysModalExamTitle">
+          Ujian Aktif
+        </div>
+
+        <div id="keysEditorList" style="flex: 1; overflow-y: auto; max-height: 55vh; padding-right: 4px;">
+          <!-- Diisi via JS -->
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--line); padding-top: 14px; margin-top: 12px;">
+          <button type="button" id="btnCancelKeysModal" class="btn btn-light" style="font-size: 12.5px;">Batal</button>
+          <button type="button" id="btnSaveKeysAndRegrade" class="btn btn-primary" style="font-size: 12.5px; font-weight: 700; padding: 9px 20px;">
+            ✓ Simpan Kunci &amp; Hitung Ulang Nilai Siswa
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- MODAL UPLOAD PINTAR SOAL & KUNCI JAWABAN (STYLE PKBM MANDIRI) -->
     <div class="modal-overlay" id="uploadExamModal">
       <div class="modal-card-custom">
@@ -708,8 +743,9 @@ KUNCI JAWABAN:
       rejectRemedialRequest,
       getStudentRemedialStatus,
       extractQuestionAndOptions,
-      updateExamDuration
-    } from "./assets/js/app.js?v=23";
+      updateExamDuration,
+      saveAndRegradeExam
+    } from "./assets/js/app.js?v=24";
 
     const user = requireAuth();
     if (user) {
@@ -865,6 +901,17 @@ KUNCI JAWABAN:
           const predikat = prevRes.score >= 85 ? "A" : (prevRes.score >= 75 ? "B" : (prevRes.score >= 65 ? "C" : "D"));
           badge.className = `predikat-badge predikat-${predikat}`;
           badge.textContent = predikat;
+
+          const circle = document.getElementById("scoreCircle");
+          if (circle) {
+            if (prevRes.score >= 85) circle.style.borderColor = "#059669";
+            else if (prevRes.score >= 75) circle.style.borderColor = "#2563eb";
+            else if (prevRes.score >= 65) circle.style.borderColor = "#d97706";
+            else circle.style.borderColor = "#dc2626";
+          }
+
+          studentAnswers = prevRes.answers || {};
+          renderAnswerReview();
 
           await updateStudentRemedialUI(prevRes.score);
           return;
@@ -1346,6 +1393,90 @@ KUNCI JAWABAN:
       window.scrollTo({ top: 0, behavior: "smooth" });
     };
 
+    // Modal Kelola Kunci Jawaban & Hitung Ulang Nilai Siswa (Khusus Pelatih)
+    const keysModal = document.getElementById("manageKeysModal");
+    function openManageKeysModal() {
+      if (!isPelatihOnly) {
+        alert("Akses Terbatas: Hanya Pelatih yang dapat mengelola kunci jawaban.");
+        return;
+      }
+      if (!currentExam || !currentExam.questions || currentExam.questions.length === 0) {
+        alert("Belum ada butir soal pada paket ujian ini.");
+        return;
+      }
+      document.getElementById("keysModalExamTitle").textContent = `${currentExam.judul} (${currentExam.questions.length} Butir Soal)`;
+      const listEl = document.getElementById("keysEditorList");
+      listEl.innerHTML = currentExam.questions.map((q, idx) => {
+        const parsed = extractQuestionAndOptions(q);
+        const curKey = (parsed.kunci || "A").toUpperCase();
+        return `
+          <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 10px; background: #f8fafc;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 8px;">
+              <div style="font-size: 13px; font-weight: 700; color: #0f172a; flex: 1;">
+                #${idx + 1}. ${parsed.pertanyaan}
+              </div>
+              <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                <label style="font-size: 11.5px; font-weight: 800; color: #047857;">Kunci:</label>
+                <select class="form-control form-select-sm key-edit-select" data-idx="${idx}" style="width: 70px; font-weight: 800; color: #047857; border: 1.5px solid #10b981; padding: 4px 8px;">
+                  <option value="A" ${curKey === 'A' ? 'selected' : ''}>A</option>
+                  <option value="B" ${curKey === 'B' ? 'selected' : ''}>B</option>
+                  <option value="C" ${curKey === 'C' ? 'selected' : ''}>C</option>
+                  <option value="D" ${curKey === 'D' ? 'selected' : ''}>D</option>
+                </select>
+              </div>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px; font-size: 11.5px; color: #334155;">
+              <div><b>A.</b> ${parsed.opsi_a || '-'}</div>
+              <div><b>B.</b> ${parsed.opsi_b || '-'}</div>
+              <div><b>C.</b> ${parsed.opsi_c || '-'}</div>
+              <div><b>D.</b> ${parsed.opsi_d || '-'}</div>
+            </div>
+          </div>
+        `;
+      }).join("");
+      keysModal.style.display = "flex";
+    }
+
+    const btnOpenKeys = document.getElementById("btnOpenKeysModal");
+    if (btnOpenKeys) btnOpenKeys.onclick = openManageKeysModal;
+    const btnCloseKeys = document.getElementById("btnCloseKeysModal");
+    if (btnCloseKeys) btnCloseKeys.onclick = () => keysModal.style.display = "none";
+    const btnCancelKeys = document.getElementById("btnCancelKeysModal");
+    if (btnCancelKeys) btnCancelKeys.onclick = () => keysModal.style.display = "none";
+
+    const btnSaveKeys = document.getElementById("btnSaveKeysAndRegrade");
+    if (btnSaveKeys) {
+      btnSaveKeys.onclick = async () => {
+        if (!isPelatihOnly || !currentExam) return;
+        btnSaveKeys.disabled = true;
+        btnSaveKeys.textContent = "⏳ Menyimpan & Menghitung Ulang...";
+        try {
+          const selects = document.querySelectorAll(".key-edit-select");
+          const updatedQuestions = currentExam.questions.map((q, idx) => {
+            const parsed = extractQuestionAndOptions(q);
+            const sel = Array.from(selects).find(s => Number(s.getAttribute("data-idx")) === idx);
+            return {
+              ...parsed,
+              kunci: sel ? sel.value.toUpperCase() : parsed.kunci
+            };
+          });
+          const updatedExam = { ...currentExam, questions: updatedQuestions };
+          const { regradedCount } = await saveAndRegradeExam(updatedExam);
+          currentExam.questions = updatedQuestions;
+          renderQuestions();
+          if (canViewRecap) await loadTrainerRecap();
+          alert(`🎉 Kunci jawaban berhasil disimpan dan ${regradedCount} hasil ujian siswa telah dihitung ulang otomatis!`);
+          keysModal.style.display = "none";
+        } catch (err) {
+          console.error("Gagal simpan & regrade:", err);
+          alert("Terjadi kesalahan saat menghitung ulang nilai: " + err.message);
+        } finally {
+          btnSaveKeys.disabled = false;
+          btnSaveKeys.textContent = "✓ Simpan Kunci & Hitung Ulang Nilai Siswa";
+        }
+      };
+    }
+
     // Modal Atur Waktu CBT (Khusus Pelatih)
     const durationModal = document.getElementById("setDurationModal");
     function openDurationSettingsModal() {
@@ -1495,9 +1626,14 @@ KUNCI JAWABAN:
 
       const summaryList = document.getElementById("parsedQuestionsSummary");
       summaryList.innerHTML = parsedData.questions.map((q, idx) => `
-        <div style="padding: 4px 0; border-bottom: 1px dashed #cbd5e1;">
-          <b>#${idx + 1}.</b> ${q.pertanyaan.substring(0, 60)}... &bull; 
-          <span style="color: #059669; font-weight: bold;">Kunci: ${q.kunci}</span>
+        <div style="padding: 6px 0; border-bottom: 1px dashed #cbd5e1; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+          <div style="flex: 1; min-width: 0;">
+            <b>#${idx + 1}.</b> ${q.pertanyaan.substring(0, 75)}${q.pertanyaan.length > 75 ? '...' : ''}
+            <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
+              A: ${(q.opsi_a || '-').substring(0, 22)} | B: ${(q.opsi_b || '-').substring(0, 22)} | C: ${(q.opsi_c || '-').substring(0, 22)} | D: ${(q.opsi_d || '-').substring(0, 22)}
+            </div>
+          </div>
+          <span class="badge" style="background: #dcfce7; color: #15803d; font-weight: 800; padding: 4px 10px;">Kunci: ${q.kunci}</span>
         </div>
       `).join("");
     };

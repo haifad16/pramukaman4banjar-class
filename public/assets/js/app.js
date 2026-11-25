@@ -691,10 +691,13 @@ export function extractQuestionAndOptions(q) {
   let optB = q.opsi_b || "";
   let optC = q.opsi_c || "";
   let optD = q.opsi_d || "";
-  let key = q.kunci || "";
+  let key = (q.kunci || "").toUpperCase();
+
+  // 0. Buang baris judul kategori/bab di akhir teks jika ikut terbawa (misal: "B. Organisasi Gerakan Pramuka (Soal 11–20)")
+  qText = qText.replace(/(?:^|\n)\s*(?:Bagian\s+[IVX0-9A-D]+[\.\:\-\s]+|[A-D]\.\s+[^\n]*\(\s*Soal\s+\d+[^\n]*\))[^\n]*$/i, '').trim();
 
   // 1. Bersihkan kunci jawaban inline yang menempel di akhir teks soal jika ada
-  const keyMatch = qText.match(/(?:[\n\r•\-\|]|\s+)(?:Kunci|Jawaban|Ans)\s*[:=-]?\s*([A-Ea-e])\s*$/i);
+  const keyMatch = qText.match(/(?:[\n\r•\-\|]|\s+)(?:Kunci(?:\s+Jawaban)?|Jawaban|Ans)\s*[:=-]\s*[\(\[]?([A-Ea-e])[\)\]\.]?\s*$/i);
   if (keyMatch) {
     if (!key) key = keyMatch[1].toUpperCase();
     qText = qText.substring(0, keyMatch.index).trim();
@@ -702,27 +705,30 @@ export function extractQuestionAndOptions(q) {
 
   // 2. Jika opsi masih kosong atau belum terpisah, ekstrak dari pertanyaan
   if (!optA || !optB) {
-    const aMatch = qText.match(/(?:^|[\n\r•\-\|]|\s+)[\(\[]?A[\.\)\]]\s*/i);
+    const upperMatch = qText.match(/(?:^|[\n\r•\-\|]|\s+)[\(\[]?A[\.\)\]]\s+/);
+    const aMatch = upperMatch || qText.match(/(?:^|[\n\r•\-\|]|\s+)[\(\[]?a[\.\)\]]\s+/);
     if (aMatch) {
       const aIdx = aMatch.index;
       const optionsPart = qText.substring(aIdx);
       qText = qText.substring(0, aIdx).replace(/[\s•\-\|]+$/, '').trim();
 
-      const optRegex = /(?:^|[\n\r•\-\|]|\s+)[\(\[]?([A-Ea-e])[\.\)\]]\s*([\s\S]*?)(?=(?:[\n\r•\-\|]|\s+)[\(\[]?[A-Ea-e][\.\)\]]|$)/gi;
-      const matches = [...optionsPart.matchAll(optRegex)];
+      const optPattern = upperMatch
+        ? /(?:^|[\n\r•\-\|]|\s+)[\(\[]?([A-E])[\.\)\]]\s+([\s\S]*?)(?=(?:[\n\r•\-\|]|\s+)[\(\[]?[A-E][\.\)\]]\s+|$)/g
+        : /(?:^|[\n\r•\-\|]|\s+)[\(\[]?([A-Ea-e])[\.\)\]]\s+([\s\S]*?)(?=(?:[\n\r•\-\|]|\s+)[\(\[]?[A-Ea-e][\.\)\]]\s+|$)/gi;
+      const matches = [...optionsPart.matchAll(optPattern)];
       for (const m of matches) {
         const letter = m[1].toUpperCase();
         let val = m[2].replace(/[\s•\-\|]+$/, '').trim();
-        val = val.replace(/(?:[\n\r•\-\|]|\s+)?(?:Kunci|Jawaban|Ans)\s*[:=-]?\s*[A-Ea-e]\s*$/i, '').trim();
-        if (letter === 'A') optA = val;
-        else if (letter === 'B') optB = val;
-        else if (letter === 'C') optC = val;
-        else if (letter === 'D') optD = val;
+        val = val.replace(/(?:[\n\r•\-\|]|\s+)?(?:Kunci(?:\s+Jawaban)?|Jawaban|Ans)\s*[:=-]\s*[\(\[]?[A-Ea-e][\)\]\.]?\s*$/i, '').trim();
+        if (letter === 'A' && !optA) optA = val;
+        else if (letter === 'B' && !optB) optB = val;
+        else if (letter === 'C' && !optC) optC = val;
+        else if (letter === 'D' && !optD) optD = val;
       }
     }
   } else {
     // Jika opsi sudah ada, pastikan teks pertanyaan bersih dari opsi yang menempel
-    const aMatch = qText.match(/(?:^|[\n\r•\-\|]|\s+)[\(\[]?A[\.\)\]]\s*/i);
+    const aMatch = qText.match(/(?:^|[\n\r•\-\|]|\s+)[\(\[]?A[\.\)\]]\s+/) || qText.match(/(?:^|[\n\r•\-\|]|\s+)[\(\[]?a[\.\)\]]\s+/);
     if (aMatch && aMatch.index > 0) {
       qText = qText.substring(0, aMatch.index).replace(/[\s•\-\|]+$/, '').trim();
     }
@@ -730,7 +736,7 @@ export function extractQuestionAndOptions(q) {
 
   // 3. Pastikan opsi bersih dari teks kunci jawaban yang mungkin menempel
   if (optD) {
-    optD = optD.replace(/(?:[\n\r•\-\|]|\s+)?(?:Kunci|Jawaban|Ans)\s*[:=-]?\s*[A-Ea-e]\s*$/i, '').trim();
+    optD = optD.replace(/(?:[\n\r•\-\|]|\s+)?(?:Kunci(?:\s+Jawaban)?|Jawaban|Ans)\s*[:=-]\s*[\(\[]?[A-Ea-e][\)\]\.]?\s*$/i, '').trim();
   }
 
   return {
@@ -752,76 +758,126 @@ export function parseExamText(rawText) {
     judul: "Kuis Penilaian Kepramukaan",
     mapel: "Pramuka Penegak",
     tingkat: "Penegak Bantara",
-    durasi: 30
+    durasi: 60
   };
 
-  const titleMatch = text.match(/(?:Judul|Ujian|Kuis|Asesmen)\s*[:=-]\s*([^\n]+)/i);
+  const titleMatch = text.match(/^(?:Judul|Ujian|Kuis|Asesmen)\s*[:=-]\s*([^\n]+)/im);
   if (titleMatch) meta.judul = titleMatch[1].trim();
 
-  // Pisahkan Kunci Jawaban di akhir dokumen jika ada
+  // Pisahkan Kunci Jawaban di akhir dokumen jika ada (mendukung multi-baris, satu baris, dan tabel multi-kolom)
   const separateKeys = {};
-  const keyBlockRegex = /(?:^|\n)\s*(?:[=\-*#|]+\s*)?(?:KUNCI\s+JAWABAN|KUNCI\s+SOAL|DAFTAR\s+KUNCI|KUNCI\s*[:=-])[^\n]*\n([\s\S]*)$/i;
-  const keyBlockMatch = text.match(keyBlockRegex);
+  const keyHeaderLineRegex = /^[ \t]*(?:[=\-*#|]+[ \t]*)?(?:KUNCI\s+JAWABAN|KUNCI\s+SOAL|DAFTAR\s+KUNCI|KUNCI[ \t]*[:=-])([^\n]*)/gim;
+  const headerMatches = [...text.matchAll(keyHeaderLineRegex)];
   let mainText = text;
 
-  if (keyBlockMatch) {
-    const keyBlock = keyBlockMatch[1];
-    mainText = text.substring(0, keyBlockMatch.index).trim();
+  if (headerMatches.length > 0) {
+    const lastMatch = headerMatches[headerMatches.length - 1];
+    const headerEnd = lastMatch.index + lastMatch[0].length;
+    const headerTail = (lastMatch[1] || "").trim();
+    const bodyBlock = text.slice(headerEnd).replace(/^\n/, "").trim();
+    const isExplicitBlockTitle = /(?:KUNCI\s+JAWABAN|KUNCI\s+SOAL|DAFTAR\s+KUNCI)/i.test(lastMatch[0]);
+    const hasNumberedHeaderKeys = /\d+[ \t.:=\)-]+[\(\[]?[A-Ea-e](?:[\)\]\.\s,;\|]|$)/i.test(headerTail);
+    const hasMultiLettersHeader = /(?:\b[A-Ea-e]\b[ \t,;]+){2,}[A-Ea-e]\b/i.test(headerTail);
+    const bodyLooksLikeQuestions = /(?:^|\n)[ \t]*[\(\[]?[AB][\.\)\]][ \t]+/i.test(bodyBlock);
 
-    // 1. Format: '1. A' atau '1 - A' atau '1: A' atau '1 A'
-    const keyItemMatches1 = keyBlock.matchAll(/(?:^|[\s,\n|;])(\d+)[\s.:=\)-]+([A-Ea-e])(?=[\s,\n|;]|$)/gi);
-    for (const km of keyItemMatches1) {
-      separateKeys[parseInt(km[1])] = km[2].toUpperCase();
-    }
+    const isDocKeyBlock = !bodyLooksLikeQuestions && (
+      (isExplicitBlockTitle && (bodyBlock.length > 0 || hasNumberedHeaderKeys || hasMultiLettersHeader)) ||
+      (bodyBlock.length > 0 && !/^[A-Ea-e]$/i.test(headerTail)) ||
+      hasNumberedHeaderKeys ||
+      hasMultiLettersHeader
+    );
 
-    // 2. Format terbalik: 'A 1' atau 'B 29'
-    const keyItemMatches2 = keyBlock.matchAll(/(?:^|[\s,\n|;])([A-Ea-e])[\s.:=\)-]+(\d+)(?=[\s,\n|;]|$)/gi);
-    for (const km of keyItemMatches2) {
-      separateKeys[parseInt(km[2])] = km[1].toUpperCase();
-    }
+    if (isDocKeyBlock) {
+      const keyBlock = (hasNumberedHeaderKeys || hasMultiLettersHeader
+        ? `${headerTail}\n${bodyBlock}`
+        : bodyBlock).trim();
+      mainText = text.substring(0, lastMatch.index).trim();
 
-    // 3. Format huruf berurutan jika tidak ada nomor (misal 'A, B, C, D...')
-    if (Object.keys(separateKeys).length === 0) {
-      const letters = keyBlock.match(/\b([A-Ea-e])\b/g);
-      if (letters) {
-        letters.forEach((l, idx) => {
-          separateKeys[idx + 1] = l.toUpperCase();
-        });
+      if (keyBlock) {
+        // 1. Format utama: '1. A', '1 - A', '1: A', '1) A', '1 A', '1. (A)' pada baris yang sama (anti-lintas baris!)
+        const keyItemMatches1 = keyBlock.matchAll(/(?:^|[\s,\n|;\t])(\d{1,3})[ \t.:=\)-]+[\(\[]?([A-Ea-e])[\)\]\.]?(?=[\s,\n|;\t]|$)/gi);
+        for (const km of keyItemMatches1) {
+          separateKeys[parseInt(km[1], 10)] = km[2].toUpperCase();
+        }
+
+        // 2. Format terbalik ('A 1', 'B. 29'): HANYA dijalankan jika format nomor-huruf tidak ditemukan!
+        if (Object.keys(separateKeys).length === 0) {
+          const keyItemMatches2 = keyBlock.matchAll(/(?:^|[\s,\n|;\t])[\(\[]?([A-Ea-e])[\)\]]?[ \t.:=\)-]+(\d{1,3})(?=[\s,\n|;\t\.]|$)/gi);
+          for (const km of keyItemMatches2) {
+            separateKeys[parseInt(km[2], 10)] = km[1].toUpperCase();
+          }
+        }
+
+        // 3. Format huruf berurutan jika tanpa nomor ('A, B, C, D...')
+        if (Object.keys(separateKeys).length === 0) {
+          const letters = keyBlock.match(/\b([A-Ea-e])\b/g);
+          if (letters) {
+            letters.forEach((l, idx) => {
+              separateKeys[idx + 1] = l.toUpperCase();
+            });
+          }
+        }
       }
     }
   }
 
-  // Pisahkan butir soal
-  const questionBlocks = mainText.split(/(?:^|\n)\s*(?:Soal\s+|No\.?\s*)?(\d+)[\.\)\:\-]\s+/i);
-  const questions = [];
+  // Bersihkan baris heading kategori/bagian agar tidak menimpa opsi soal sebelumnya
+  mainText = mainText.replace(/^[ \t]*(?:Bagian\s+[IVX0-9A-D]+[\.\:\-\s]+|[A-D]\.\s+[^\n]*\(\s*Soal\s+\d+[^\n]*\))[^\n]*$/gim, '');
 
-  for (let i = 1; i < questionBlocks.length; i += 2) {
-    const num = parseInt(questionBlocks[i]);
-    const block = questionBlocks[i + 1] || "";
+  // Pisahkan butir soal dan gabungkan kembali sub-daftar bernomor di dalam batang soal jika belum memiliki opsi
+  const rawSplit = mainText.split(/(?:^|\n)\s*(?:Soal\s+|No\.?\s*)?(\d+)[\.\)\:\-]\s+/i);
+  const groupedBlocks = [];
+  for (let i = 1; i < rawSplit.length; i += 2) {
+    const num = parseInt(rawSplit[i], 10);
+    const block = (rawSplit[i + 1] || "").trim();
+    const prev = groupedBlocks[groupedBlocks.length - 1];
+    const prevHasOptions = prev && /(?:^|[\n\r•\-\|]|\s+)[\(\[]?[AB][\.\)\]]\s+/i.test(prev.block);
+    if (prev && !prevHasOptions) {
+      prev.block += `\n${num}. ${block}`;
+    } else {
+      groupedBlocks.push({ num, block });
+    }
+  }
 
-    // Cek kunci inline: "Kunci: A" atau "*A."
+  const questions = groupedBlocks.map(({ num, block }, idx) => {
+    // Cek kunci inline ketat (wajib memakai tanda pemisah :, =, atau -)
     let inlineKey = "";
-    const inlineKeyMatch = block.match(/(?:Kunci|Jawaban|Ans)\s*[:=-]?\s*([A-Da-d])/i);
+    const inlineKeyMatch = block.match(/(?:^|\n|\s)(?:Kunci(?:\s+Jawaban)?|Jawaban|Ans)\s*[:=-]\s*[\(\[]?([A-Ea-e])[\)\]\.]?(?=\s|$)/i);
     if (inlineKeyMatch) {
       inlineKey = inlineKeyMatch[1].toUpperCase();
     }
 
-    const key = separateKeys[num] || inlineKey || "A";
+    const qId = num || (idx + 1);
+    const key = separateKeys[qId] || separateKeys[idx + 1] || inlineKey || "A";
 
-    const extracted = extractQuestionAndOptions({
-      id: num,
-      pertanyaan: block.trim(),
+    return extractQuestionAndOptions({
+      id: qId,
+      pertanyaan: block,
       opsi_a: "",
       opsi_b: "",
       opsi_c: "",
       opsi_d: "",
       kunci: key
     });
-
-    questions.push(extracted);
-  }
+  });
 
   return { meta, questions };
+}
+
+function mergeExamObjects(base, override) {
+  if (!base) return override;
+  if (!override) return base;
+  return {
+    ...base,
+    ...override,
+    judul: override.judul || base.judul,
+    mapel: override.mapel || base.mapel,
+    tingkat: override.tingkat || base.tingkat,
+    durasi: override.durasi || base.durasi || 60,
+    questions: (Array.isArray(override.questions) && override.questions.length > 0)
+      ? override.questions
+      : base.questions
+  };
 }
 
 export async function saveExam(examData) {
@@ -845,16 +901,14 @@ export async function saveExam(examData) {
     console.warn("Gagal simpan ke localStorage:", lsErr);
   }
 
-  // 2. Sinkronisasi ke Cloud Firestore di latar belakang (non-blocking)
-  (async () => {
-    try {
-      const docRef = doc(db, "exams", docId);
-      await fsTimeout(setDoc(docRef, { ...payload, timestamp: serverTimestamp() }, { merge: true }), 2500);
-      console.log("✓ Soal ujian berhasil disinkronkan ke Cloud Firestore!");
-    } catch (fsErr) {
-      console.warn("Sinkronisasi Cloud Firestore dilewati (offline / timeout), soal tetap tersimpan aman di aplikasi:", fsErr.message);
-    }
-  })();
+  // 2. Sinkronisasi ke Cloud Firestore (awaited dengan timeout ketat 2.5 detik)
+  try {
+    const docRef = doc(db, "exams", docId);
+    await fsTimeout(setDoc(docRef, { ...payload, timestamp: serverTimestamp() }, { merge: true }), 2500);
+    console.log("✓ Soal ujian berhasil disinkronkan ke Cloud Firestore!");
+  } catch (fsErr) {
+    console.warn("Sinkronisasi Cloud Firestore dilewati (offline / timeout), soal tetap tersimpan aman di aplikasi:", fsErr.message);
+  }
 
   return payload;
 }
@@ -864,22 +918,21 @@ export async function updateExamDuration(examId, durationMinutes) {
   if (isNaN(dur) || dur < 1) throw new Error("Durasi ujian tidak valid");
 
   const nowIso = new Date().toISOString();
+  let fullExamPayload = { id: examId, durasi: dur, updatedAt: nowIso };
 
-  // 1. Simpan ke LocalStorage
+  // 1. Simpan ke LocalStorage dan pastikan metadata default ikut tersimpan jika ada
   try {
     const custom = JSON.parse(localStorage.getItem("pramuka_custom_exams") || "[]");
     const idx = custom.findIndex(e => e.id === examId);
+    const def = DEFAULT_PRAMUKA_EXAMS.find(e => e.id === examId);
     if (idx >= 0) {
-      custom[idx].durasi = dur;
-      custom[idx].updatedAt = nowIso;
+      custom[idx] = mergeExamObjects(def, { ...custom[idx], durasi: dur, updatedAt: nowIso });
+      fullExamPayload = custom[idx];
       localStorage.setItem("pramuka_custom_exams", JSON.stringify(custom));
-    } else {
-      const def = DEFAULT_PRAMUKA_EXAMS.find(e => e.id === examId);
-      if (def) {
-        const payload = { ...def, durasi: dur, updatedAt: nowIso };
-        custom.push(payload);
-        localStorage.setItem("pramuka_custom_exams", JSON.stringify(custom));
-      }
+    } else if (def) {
+      fullExamPayload = { ...def, durasi: dur, updatedAt: nowIso };
+      custom.push(fullExamPayload);
+      localStorage.setItem("pramuka_custom_exams", JSON.stringify(custom));
     }
   } catch (e) {
     console.warn("Gagal update durasi di localStorage:", e);
@@ -888,7 +941,7 @@ export async function updateExamDuration(examId, durationMinutes) {
   // 2. Sinkronisasi ke Cloud Firestore
   try {
     const docRef = doc(db, "exams", examId);
-    await fsTimeout(setDoc(docRef, { durasi: dur, updatedAt: serverTimestamp() }, { merge: true }), 2500);
+    await fsTimeout(setDoc(docRef, { ...fullExamPayload, timestamp: serverTimestamp() }, { merge: true }), 2500);
     console.log(`✓ Durasi ujian ${examId} berhasil diperbarui di Firestore: ${dur} menit`);
   } catch (fsErr) {
     console.warn("Gagal update durasi di Firestore:", fsErr);
@@ -905,9 +958,9 @@ export async function getExams() {
 
   let result = [...DEFAULT_PRAMUKA_EXAMS];
   custom.forEach(item => {
-    if (!result.some(m => m.id === item.id)) {
-      result.push(item);
-    }
+    const idx = result.findIndex(m => m.id === item.id);
+    if (idx >= 0) result[idx] = mergeExamObjects(result[idx], item);
+    else result.push(item);
   });
 
   // Ambil update dari Firestore dengan timeout 1.2 detik (tidak boleh memblokir UI)
@@ -917,7 +970,7 @@ export async function getExams() {
       const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       list.forEach(item => {
         const idx = result.findIndex(m => m.id === item.id);
-        if (idx >= 0) result[idx] = item;
+        if (idx >= 0) result[idx] = mergeExamObjects(result[idx], item);
         else result.push(item);
       });
     }
@@ -1012,6 +1065,80 @@ export async function syncAllGradesFromExam(examId) {
   return synced;
 }
 
+export async function saveAndRegradeExam(examObj) {
+  const savedExam = await saveExam(examObj);
+
+  const allResults = await getExamResults();
+  const targetResults = allResults.filter(r => r.examId === savedExam.id);
+  const allGrades = await getAllGrades();
+  const questions = savedExam.questions || [];
+  const totalQ = questions.length;
+  let updatedCount = 0;
+
+  for (const res of targetResults) {
+    const answers = res.answers || {};
+    if (!totalQ || Object.keys(answers).length === 0) continue;
+
+    let correct = 0;
+    questions.forEach((q, idx) => {
+      const parsedQ = extractQuestionAndOptions(q);
+      const qid = parsedQ.id || (idx + 1);
+      const studentAns = (answers[qid] || "").toUpperCase();
+      const keyAns = (parsedQ.kunci || "").toUpperCase();
+      if (studentAns === keyAns) correct++;
+    });
+
+    const newScore = Math.round((correct / totalQ) * 100);
+    const updatedRes = {
+      ...res,
+      examTitle: savedExam.judul || res.examTitle,
+      score: newScore,
+      correctCount: correct,
+      totalQuestions: totalQ
+    };
+
+    const resId = res.resId || `result_${res.examId}_${res.username}`;
+    try {
+      const localRes = JSON.parse(localStorage.getItem("pramuka_exam_results") || "{}");
+      localRes[resId] = updatedRes;
+      localStorage.setItem("pramuka_exam_results", JSON.stringify(localRes));
+    } catch (_) {}
+
+    try {
+      await fsTimeout(setDoc(doc(db, "exam_results", resId), { ...updatedRes, timestamp: serverTimestamp() }, { merge: true }), 2500);
+    } catch (e) {
+      console.warn("Gagal sinkronisasi regrade exam_result ke Firestore:", e.message);
+    }
+
+    const existingGrade = allGrades[`grade_${res.username}`];
+    if (!existingGrade || existingGrade.examId === savedExam.id) {
+      const attRaw = existingGrade && existingGrade.kehadiranManual !== undefined && existingGrade.kehadiranManual !== null && existingGrade.kehadiranManual !== ""
+        ? existingGrade.kehadiranManual
+        : (existingGrade ? existingGrade.kehadiran : null);
+      const attVal = attRaw !== undefined && attRaw !== null && attRaw !== "" ? Number(attRaw) : null;
+      const { finalScore, predikat } = computeFinalGrade(attVal, newScore);
+      await saveStudentGrade({
+        username: res.username,
+        name: res.name,
+        kelas: res.kelas,
+        gender: res.gender || "L",
+        examId: savedExam.id,
+        examTitle: savedExam.judul || res.examTitle,
+        kehadiran: existingGrade ? existingGrade.kehadiran : null,
+        kehadiranManual: existingGrade ? existingGrade.kehadiranManual : null,
+        nilaiKuis: newScore,
+        finalScore,
+        predikat,
+        catatan: `Hasil Kuis CBT: ${newScore}/100 (${correct}/${totalQ} Benar) - ${predikat === 'A' || predikat === 'B' ? 'Tuntas KKM' : 'Perlu Remedial'}`
+      });
+    }
+
+    updatedCount++;
+  }
+
+  return { exam: savedExam, regradedCount: updatedCount };
+}
+
 export async function getExamResults() {
   let localList = [];
   try {
@@ -1020,13 +1147,27 @@ export async function getExamResults() {
   } catch (e) {}
 
   try {
-    const snap = await fsTimeout(getDocs(collection(db, "exam_results")), 1200);
+    const snap = await fsTimeout(getDocs(collection(db, "exam_results")), 1500);
     if (snap && !snap.empty) {
       const fsList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       const merged = [...localList];
       fsList.forEach(f => {
-        if (!merged.some(m => m.resId === f.resId)) merged.push(f);
+        const key = f.resId || f.id;
+        const idx = merged.findIndex(m => (m.resId || m.id) === key);
+        if (idx >= 0) merged[idx] = { ...merged[idx], ...f };
+        else merged.push(f);
       });
+
+      // Sinkronkan balik data terbaru dari Firestore ke localStorage agar skor koreksi langsung terlihat
+      try {
+        const localObj = JSON.parse(localStorage.getItem("pramuka_exam_results") || "{}");
+        fsList.forEach(f => {
+          const key = f.resId || `result_${f.examId}_${f.username}`;
+          localObj[key] = f;
+        });
+        localStorage.setItem("pramuka_exam_results", JSON.stringify(localObj));
+      } catch (_) {}
+
       return merged;
     }
   } catch (e) {
@@ -1173,13 +1314,11 @@ export async function saveStudentGrade(gradeData) {
   localGrades[docId] = payload;
   localStorage.setItem("pramuka_local_grades", JSON.stringify(localGrades));
 
-  // Simpan ke Firestore di latar belakang
-  (async () => {
-    try {
-      const docRef = doc(db, "grades", docId);
-      await fsTimeout(setDoc(docRef, { ...payload, timestamp: serverTimestamp() }, { merge: true }), 2500);
-    } catch (e) {}
-  })();
+  // Simpan ke Firestore secara andal (timeout 2 detik)
+  try {
+    const docRef = doc(db, "grades", docId);
+    await fsTimeout(setDoc(docRef, { ...payload, timestamp: serverTimestamp() }, { merge: true }), 2000);
+  } catch (e) {}
 
   return payload;
 }
@@ -1192,11 +1331,14 @@ export async function getAllGrades() {
   } catch (e) {}
 
   try {
-    const snap = await fsTimeout(getDocs(collection(db, "grades")), 1200);
+    const snap = await fsTimeout(getDocs(collection(db, "grades")), 1500);
     if (snap && !snap.empty) {
       snap.docs.forEach(d => {
         map[d.id] = { id: d.id, ...d.data() };
       });
+      try {
+        localStorage.setItem("pramuka_local_grades", JSON.stringify(map));
+      } catch (_) {}
     }
   } catch (e) {
     console.warn("Gagal memuat nilai dari Firebase, membaca cache lokal:", e.message);
