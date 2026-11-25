@@ -113,7 +113,7 @@
     <div class="classroom-tab-nav">
       <div class="classroom-nav-item active" data-tab="classwork">📋 Tugas Kelas &amp; Materi Latihan (4 PTM)</div>
       <div class="classroom-nav-item" data-tab="stream">📢 Forum &amp; Pengumuman Ambalan</div>
-      <div class="classroom-nav-item" data-tab="submissions">📬 Rekap Tugas Masuk Siswa</div>
+      <div class="classroom-nav-item" id="tabBtnSubmissions" data-tab="submissions" style="display: none;">📬 Rekap Tugas Masuk Siswa</div>
     </div>
 
     <!-- TAB 1: TUGAS KELAS & MATERI (CLASSWORK) -->
@@ -260,11 +260,16 @@
       submitAssignment, 
       getSubmissions,
       escapeHtml
-    } from "./assets/js/app.js?v=25";
+    } from "./assets/js/app.js?v=26";
 
     const user = requireAuth();
+    const canViewSubmissions = !!(user && ['admin', 'pembina', 'pelatih'].includes(user.role));
     if (user) {
       renderTopbar("classroom");
+      const tabBtnSub = document.getElementById("tabBtnSubmissions");
+      if (tabBtnSub) {
+        tabBtnSub.style.display = canViewSubmissions ? "" : "none";
+      }
     }
 
     // Tab switching
@@ -275,9 +280,10 @@
 
     tabs.forEach(tab => {
       tab.addEventListener("click", () => {
+        const target = tab.getAttribute("data-tab");
+        if (target === "submissions" && !canViewSubmissions) return;
         tabs.forEach(t => t.classList.remove("active"));
         tab.classList.add("active");
-        const target = tab.getAttribute("data-tab");
 
         tabClasswork.style.display = target === "classwork" ? "block" : "none";
         tabStream.style.display = target === "stream" ? "block" : "none";

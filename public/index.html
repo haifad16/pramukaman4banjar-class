@@ -155,7 +155,7 @@
             </a>
 
             <div class="d-flex gap-2 mt-2">
-              <a href="tarikan_data.html" class="btn btn-light flex-fill text-decoration-none small">
+              <a href="tarikan_data.html" id="btnDashboardTarikan" class="btn btn-light flex-fill text-decoration-none small" style="display: none;">
                 📄 Lihat Tarikan Data Resmi
               </a>
               <a href="classroom.html" class="btn btn-light flex-fill text-decoration-none small">
@@ -277,7 +277,7 @@
             </a>
           </div>
 
-          <div class="col-12 col-md-6 col-lg-4">
+          <div class="col-12 col-md-6 col-lg-4" id="colGradingNav" style="display: none;">
             <a href="grading.html" class="feature-card h-100 text-decoration-none text-dark shadow-sm" id="cardGradingNav">
               <div class="feature-icon">📊</div>
               <div>
@@ -287,8 +287,8 @@
             </a>
           </div>
 
-          <div class="col-12 col-md-6 col-lg-4">
-            <a href="tarikan_data.html" class="feature-card h-100 text-decoration-none text-dark shadow-sm">
+          <div class="col-12 col-md-6 col-lg-4" id="colTarikanNav" style="display: none;">
+            <a href="tarikan_data.html" class="feature-card h-100 text-decoration-none text-dark shadow-sm" id="cardTarikanNav">
               <div class="feature-icon">🖨️</div>
               <div>
                 <strong class="text-primary d-block">Tarikan Data Resmi</strong>
@@ -297,7 +297,7 @@
             </a>
           </div>
 
-          <div class="col-12 col-md-6 col-lg-4">
+          <div class="col-12 col-md-6 col-lg-4" id="colSyncMaster" style="display: none;">
             <div class="feature-card h-100 shadow-sm" style="cursor: pointer;" id="btnSyncMaster">
               <div class="feature-icon">☁️</div>
               <div>
@@ -337,7 +337,7 @@
       getAllAttendances,
       getExamResults,
       getAllGrades
-    } from "./assets/js/app.js?v=25";
+    } from "./assets/js/app.js?v=26";
 
     // Setup autocomplete datalist
     const datalist = document.getElementById("studentDatalist");
@@ -494,13 +494,19 @@
           console.warn("Gagal memeriksa presensi hari ini:", attErr);
         }
 
-        // Tampilkan kartu Hasil Nilai Siswa di Beranda & sesuaikan kartu navigasi Rapor
+        // Tampilkan kartu Hasil Nilai Siswa di Beranda & sesuaikan menu/tombol khusus Pelatih/Pembina/Admin
+        const canAccessAdminMenus = ['admin', 'pembina', 'pelatih'].includes(user.role);
         const scoreCard = document.getElementById("studentScoreCard");
-        const cardGradingNav = document.getElementById("cardGradingNav");
+        const colGradingNav = document.getElementById("colGradingNav");
+        const colTarikanNav = document.getElementById("colTarikanNav");
+        const colSyncMaster = document.getElementById("colSyncMaster");
+        const btnDashboardTarikan = document.getElementById("btnDashboardTarikan");
+
+        [colGradingNav, colTarikanNav, colSyncMaster, btnDashboardTarikan].forEach(el => {
+          if (el) el.style.display = canAccessAdminMenus ? "" : "none";
+        });
+
         if (user.role === "siswa") {
-          if (cardGradingNav && cardGradingNav.parentElement) {
-            cardGradingNav.parentElement.style.display = "none";
-          }
           if (scoreCard) {
             scoreCard.style.display = "block";
             try {
@@ -548,9 +554,6 @@
           }
         } else {
           if (scoreCard) scoreCard.style.display = "none";
-          if (cardGradingNav && cardGradingNav.parentElement) {
-            cardGradingNav.parentElement.style.display = "block";
-          }
         }
 
         // Live Clock
@@ -569,10 +572,12 @@
       }
     }
 
-    // Sync button
+    // Sync button (khusus Pelatih / Pembina / Admin)
     const btnSync = document.getElementById("btnSyncMaster");
     if (btnSync) {
       btnSync.addEventListener("click", async () => {
+        const cur = getCurrentUser();
+        if (!cur || !['admin', 'pembina', 'pelatih'].includes(cur.role)) return;
         btnSync.style.opacity = "0.5";
         btnSync.querySelector("strong").textContent = "Menyinkronkan ke Firebase...";
         const ok = await syncMasterDataToFirestore(true);

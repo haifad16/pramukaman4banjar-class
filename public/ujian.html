@@ -327,7 +327,7 @@
       </div>
 
       <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
-        <button id="btnRetryExam" class="btn btn-light" disabled style="font-size: 13px; font-weight: 700; opacity: 0.6; cursor: not-allowed;">
+        <button id="btnRetryExam" class="btn btn-light" disabled style="font-size: 13px; font-weight: 700; opacity: 0.6; cursor: not-allowed; display: none;">
           🔒 Ulangi Kuis (Perlu ACC Pelatih)
         </button>
         <button id="btnReviewAnswers" class="btn btn-primary" style="font-size: 13px; font-weight: 700;">
@@ -748,7 +748,7 @@ KUNCI JAWABAN:
       escapeHtml,
       safeLocalGet,
       safeLocalSet
-    } from "./assets/js/app.js?v=25";
+    } from "./assets/js/app.js?v=26";
 
     const user = requireAuth();
 
@@ -1291,28 +1291,23 @@ KUNCI JAWABAN:
           `;
           const btnRemReq = document.getElementById("btnOpenRemedialReq");
           if (btnRemReq) btnRemReq.onclick = openRemedialModal;
+          retryBtn.style.display = "none";
           retryBtn.disabled = true;
-          retryBtn.style.opacity = "0.5";
-          retryBtn.style.cursor = "not-allowed";
-          retryBtn.className = "btn btn-light";
-          retryBtn.innerHTML = "🔒 Ulangi Kuis (Perlu ACC Pelatih)";
         } else if (remReq.status === 'pending') {
           remArea.innerHTML = `
             <div style="padding: 10px 14px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; color: #1e40af; font-size: 12.5px;">
               ⏳ <b>Permohonan Remedial Terkirim:</b> Sedang menunggu persetujuan (ACC) dari Pelatih Ekstrakurikuler (Alasan: "<i>${escapeHtml(remReq.reason)}</i>").
             </div>
           `;
+          retryBtn.style.display = "none";
           retryBtn.disabled = true;
-          retryBtn.style.opacity = "0.5";
-          retryBtn.style.cursor = "not-allowed";
-          retryBtn.className = "btn btn-light";
-          retryBtn.innerHTML = "⏳ Menunggu ACC Pelatih...";
         } else if (remReq.status === 'approved') {
           remArea.innerHTML = `
             <div style="padding: 10px 14px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 6px; color: #047857; font-size: 12.5px;">
               🎉 <b>Persetujuan (ACC) DIBERIKAN oleh ${escapeHtml(remReq.approvedBy)}!</b> Anda sekarang diizinkan untuk mengerjakan kuis remedial ini kembali sebanyak 1 kali.
             </div>
           `;
+          retryBtn.style.display = "inline-flex";
           retryBtn.disabled = false;
           retryBtn.style.opacity = "1";
           retryBtn.style.cursor = "pointer";
@@ -1324,14 +1319,12 @@ KUNCI JAWABAN:
               ✕ <b>Permohonan Remedial Ditolak</b> oleh ${escapeHtml(remReq.rejectedBy)}: "<i>${escapeHtml(remReq.rejectionNote || 'Nilai sudah mencukupi batas kelulusan.')}</i>".
             </div>
           `;
+          retryBtn.style.display = "none";
           retryBtn.disabled = true;
-          retryBtn.style.opacity = "0.5";
-          retryBtn.style.cursor = "not-allowed";
-          retryBtn.className = "btn btn-light";
-          retryBtn.innerHTML = "🔒 Remedial Ditolak";
         }
       } else {
         // Mode Pelatih / Admin: bebas uji coba
+        retryBtn.style.display = "inline-flex";
         retryBtn.disabled = false;
         retryBtn.style.opacity = "1";
         retryBtn.style.cursor = "pointer";

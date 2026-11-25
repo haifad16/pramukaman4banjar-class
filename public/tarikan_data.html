@@ -254,12 +254,14 @@
 
   <script type="module">
     import { PRAMUKA_SEED_DATA } from "./assets/js/pramuka-seed-data.js?v=2";
-    import { getAllAttendances, escapeHtml } from "./assets/js/app.js?v=25";
+    import { requireAuth, getAllAttendances, escapeHtml } from "./assets/js/app.js?v=26";
 
+    const user = requireAuth(['admin', 'pembina', 'pelatih']);
     const classes = ["X-PI", "X-PA", "XI-PI", "XI-PA", "XII-PI", "XII-PA"];
     let attendanceMap = {};
 
     async function loadData() {
+      if (!user) return;
       try {
         const attList = await getAllAttendances();
         attList.forEach(a => {
@@ -404,7 +406,9 @@
       XLSX.writeFile(wb, `Tarikan_Presensi_Pramuka_MAN4Banjar_${val}.xlsx`);
     };
 
-    loadData();
+    if (user) {
+      loadData();
+    }
   </script>
 </body>
 </html>

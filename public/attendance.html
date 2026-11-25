@@ -133,7 +133,7 @@
         <button id="btnCheckLocation" class="btn btn-light" style="font-size: 12.5px;">
           📍 Muat Ulang Koordinat GPS
         </button>
-        <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-body); cursor: pointer; background: #fffbeb; padding: 6px 12px; border-radius: var(--radius-full); border: 1px solid #fde68a;">
+        <label id="gpsSimulationWrap" style="display: none; align-items: center; gap: 6px; font-size: 12px; color: var(--text-body); cursor: pointer; background: #fffbeb; padding: 6px 12px; border-radius: var(--radius-full); border: 1px solid #fde68a;">
           <input type="checkbox" id="bypassGpsCheck">
           <span><b>Mode Simulasi Lapangan</b> (Izinkan presensi untuk pengujian)</span>
         </label>
@@ -212,11 +212,16 @@
       OFFICE_COORDS, 
       calculateDistance,
       saveAttendance 
-    } from "./assets/js/app.js?v=25";
+    } from "./assets/js/app.js?v=26";
 
     const user = requireAuth();
+    const canBypassGps = !!(user && ['admin', 'pembina', 'pelatih'].includes(user.role));
     if (user) {
       renderTopbar("attendance");
+      const simWrap = document.getElementById("gpsSimulationWrap");
+      if (simWrap) {
+        simWrap.style.display = canBypassGps ? "inline-flex" : "none";
+      }
     }
 
     // State
@@ -252,7 +257,8 @@
       state.accuracy = acc;
       state.distance = calculateDistance(lat, lng, OFFICE_COORDS.lat, OFFICE_COORDS.lng);
 
-      const isValid = (state.distance <= OFFICE_COORDS.radius) || bypassGpsCheck.checked;
+      const allowBypass = canBypassGps && bypassGpsCheck && bypassGpsCheck.checked;
+      const isValid = (state.distance <= OFFICE_COORDS.radius) || allowBypass;
       state.locationOK = isValid;
 
       if (isValid) {
@@ -265,7 +271,9 @@
         locationStatus.style.background = "#fef2f2";
         locationStatus.style.borderColor = "#fecaca";
         locationStatus.style.color = "#b91c1c";
-        locationStatus.innerHTML = `✗ <b>Di Luar Radius:</b> Anda terdeteksi ±${state.distance} m dari MAN 4 Banjar (Maksimal ${OFFICE_COORDS.radius} m). Aktifkan <i>Mode Simulasi</i> jika sedang mencoba di rumah.`;
+        locationStatus.innerHTML = canBypassGps
+          ? `✗ <b>Di Luar Radius:</b> Anda terdeteksi ±${state.distance} m dari MAN 4 Banjar (Maksimal ${OFFICE_COORDS.radius} m). Aktifkan <i>Mode Simulasi</i> jika sedang mencoba di rumah.`
+          : `✗ <b>Di Luar Radius:</b> Anda terdeteksi ±${state.distance} m dari MAN 4 Banjar (Maksimal ${OFFICE_COORDS.radius} m). Pastikan Anda berada di area pangkalan MAN 4 Banjar lalu muat ulang GPS.`;
         stepFace.classList.add("locked");
       }
       checkReady();
@@ -273,7 +281,9 @@
 
     function readGps() {
       if (!navigator.geolocation) {
-        locationStatus.textContent = "Browser tidak mendukung GPS. Silakan aktifkan Mode Simulasi.";
+        locationStatus.textContent = canBypassGps
+          ? "Browser tidak mendukung GPS. Silakan aktifkan Mode Simulasi."
+          : "Browser tidak mendukung GPS. Gunakan perangkat dengan fitur lokasi aktif.";
         return;
       }
       locationStatus.textContent = "Membaca titik koordinat perangkat...";
@@ -282,8 +292,10 @@
           updateLocationState(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
         },
         (err) => {
-          locationStatus.innerHTML = `Lokasi GPS tidak dapat dibaca (${err.message}). Anda dapat mengaktifkan <b>Mode Simulasi Lapangan</b> untuk melanjutkan pengujian.`;
-          if (bypassGpsCheck.checked) {
+          locationStatus.innerHTML = canBypassGps
+            ? `Lokasi GPS tidak dapat dibaca (${err.message}). Anda dapat mengaktifkan <b>Mode Simulasi Lapangan</b> untuk melanjutkan pengujian.`
+            : `Lokasi GPS tidak dapat dibaca (${err.message}). Pastikan izin lokasi (GPS) aktif pada browser Anda lalu muat ulang GPS.`;
+          if (canBypassGps && bypassGpsCheck && bypassGpsCheck.checked) {
             updateLocationState(OFFICE_COORDS.lat, OFFICE_COORDS.lng, 10);
           }
         },
@@ -291,13 +303,19 @@
       );
     }
 
-    bypassGpsCheck.addEventListener("change", () => {
-      if (bypassGpsCheck.checked) {
-        updateLocationState(state.lat || OFFICE_COORDS.lat, state.lng || OFFICE_COORDS.lng, state.accuracy || 15);
-      } else {
-        readGps();
-      }
-    });
+    if (bypassGpsCheck) {
+      bypassGpsCheck.addEventListener("change", () => {
+        if (!canBypassGps) {
+          bypassGpsCheck.checked = false;
+          return;
+        }
+        if (bypassGpsCheck.checked) {
+          updateLocationState(state.lat || OFFICE_COORDS.lat, state.lng || OFFICE_COORDS.lng, state.accuracy || 15);
+        } else {
+          readGps();
+        }
+      });
+    }
 
     const btnCheckLoc = document.getElementById("btnCheckLocation");
     if (btnCheckLoc) btnCheckLoc.onclick = readGps;
