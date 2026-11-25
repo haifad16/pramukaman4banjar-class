@@ -311,7 +311,7 @@
       startLiveClock,
       syncMasterDataToFirestore,
       getAllAttendances
-    } from "./assets/js/app.js?v=24";
+    } from "./assets/js/app.js?v=25";
 
     // Setup autocomplete datalist
     const datalist = document.getElementById("studentDatalist");
@@ -338,6 +338,7 @@
       const canvas = document.getElementById("captchaCanvas");
       if (!canvas) return;
       const ctx = canvas.getContext("2d");
+      if (!ctx) return;
       const w = canvas.width;
       const h = canvas.height;
 
@@ -442,18 +443,29 @@
         else if (user.role === "admin") roleStr = "Peran: Administrator Gugus Depan";
         document.getElementById("bannerUserRole").innerHTML = `<b>${roleStr}</b>`;
 
-        // Check user attendance today
-        const attendances = await getAllAttendances();
-        const userToday = attendances.find(a => a.username === user.username);
-        if (userToday) {
-          document.getElementById("presensiStatusPill").className = "status-pill success";
-          document.getElementById("presensiStatusPill").textContent = "● Hadir Tercatat";
-          document.getElementById("userCheckInTime").textContent = userToday.checkInTime || "--:--";
-          document.getElementById("userCheckInNote").textContent = "Jarak: ±" + (userToday.distance || 0) + " m";
-          if (userToday.checkOutTime) {
-            document.getElementById("userCheckOutTime").textContent = userToday.checkOutTime;
-            document.getElementById("userCheckOutNote").textContent = "Presensi Selesai";
+        // Check user attendance today (aman saat offline)
+        try {
+          const attendances = await getAllAttendances();
+          const userToday = attendances.find(a => a.username === user.username);
+          if (userToday) {
+            const pill = document.getElementById("presensiStatusPill");
+            if (pill) {
+              pill.className = "status-pill success";
+              pill.textContent = "● Hadir Tercatat";
+            }
+            const inTime = document.getElementById("userCheckInTime");
+            const inNote = document.getElementById("userCheckInNote");
+            if (inTime) inTime.textContent = userToday.checkInTime || "--:--";
+            if (inNote) inNote.textContent = "Jarak: ±" + (userToday.distance || 0) + " m";
+            if (userToday.checkOutTime) {
+              const outTime = document.getElementById("userCheckOutTime");
+              const outNote = document.getElementById("userCheckOutNote");
+              if (outTime) outTime.textContent = userToday.checkOutTime;
+              if (outNote) outNote.textContent = "Presensi Selesai";
+            }
           }
+        } catch (attErr) {
+          console.warn("Gagal memeriksa presensi hari ini:", attErr);
         }
 
         // Live Clock

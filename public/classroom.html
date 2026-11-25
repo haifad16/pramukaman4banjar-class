@@ -258,8 +258,9 @@
       renderTopbar, 
       getMeetings, 
       submitAssignment, 
-      getSubmissions 
-    } from "./assets/js/app.js?v=24";
+      getSubmissions,
+      escapeHtml
+    } from "./assets/js/app.js?v=25";
 
     const user = requireAuth();
     if (user) {
@@ -290,71 +291,80 @@
 
     // Render 4 Meetings
     async function renderMeetingsList() {
-      const meetings = await getMeetings();
       const container = document.getElementById("meetingsContainer");
-      container.innerHTML = "";
+      if (!container) return;
+      try {
+        const meetings = await getMeetings();
+        container.innerHTML = "";
 
-      meetings.forEach(ptm => {
-        const card = document.createElement("div");
-        card.className = "meeting-card";
-        card.innerHTML = `
-          <div class="meeting-header">
-            <div style="display: flex; gap: 14px; align-items: flex-start;">
-              <div class="meeting-num-badge">${ptm.pertemuan_ke}</div>
-              <div>
-                <h3 class="meeting-title">Pertemuan ${ptm.pertemuan_ke}: ${ptm.judul}</h3>
-                <div class="meeting-meta">
-                  📅 ${ptm.hari_tanggal} &bull; 🏷️ Kategori: <b>${ptm.kategori}</b> &bull; 👑 Pelatih: <b>${ptm.pelatih}</b>
+        meetings.forEach(ptm => {
+          const card = document.createElement("div");
+          card.className = "meeting-card";
+          card.innerHTML = `
+            <div class="meeting-header">
+              <div style="display: flex; gap: 14px; align-items: flex-start;">
+                <div class="meeting-num-badge">${escapeHtml(ptm.pertemuan_ke)}</div>
+                <div>
+                  <h3 class="meeting-title">Pertemuan ${escapeHtml(ptm.pertemuan_ke)}: ${escapeHtml(ptm.judul)}</h3>
+                  <div class="meeting-meta">
+                    📅 ${escapeHtml(ptm.hari_tanggal)} &bull; 🏷️ Kategori: <b>${escapeHtml(ptm.kategori)}</b> &bull; 👑 Pelatih: <b>${escapeHtml(ptm.pelatih)}</b>
+                  </div>
                 </div>
               </div>
+              <span class="badge" style="background: #e0f2fe; color: #0369a1; font-size: 11.5px; font-weight: 700;">
+                Latihan Terjadwal
+              </span>
             </div>
-            <span class="badge" style="background: #e0f2fe; color: #0369a1; font-size: 11.5px; font-weight: 700;">
-              Latihan Terjadwal
-            </span>
-          </div>
 
-          <div class="meeting-desc">
-            <strong>Materi &amp; Silabus:</strong><br>
-            ${ptm.deskripsi}
-          </div>
-
-          <div style="background: #fdfefe; border: 1px solid #e2e8f0; border-radius: var(--radius-sm); padding: 12px 14px; margin-top: 10px;">
-            <strong style="color: #1e3a8a; font-size: 12.5px; display: block; margin-bottom: 4px;">
-              📋 Instruksi Latihan Lapangan:
-            </strong>
-            <p style="font-size: 13px; color: var(--text-body); margin: 0; white-space: pre-line;">${ptm.instruksi}</p>
-          </div>
-
-          <div class="meeting-tasks-box">
-            <div class="meeting-tasks-title">
-              <span>🎯 Ujian / Tugas SKU Penegak:</span>
+            <div class="meeting-desc">
+              <strong>Materi &amp; Silabus:</strong><br>
+              ${escapeHtml(ptm.deskripsi)}
             </div>
-            <p style="font-size: 13px; font-weight: 600; color: #78350f; margin: 0;">${ptm.tugas}</p>
-          </div>
 
-          <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px;">
-            <a href="attendance.html" class="btn btn-light" style="text-decoration: none; font-size: 12.5px;">
-              📍 Presensi Pertemuan Ini
-            </a>
-            <button class="btn btn-primary btn-submit-for-ptm" data-id="${ptm.id}" style="font-size: 12.5px;">
-              📤 Kumpulkan Tugas Pertemuan ${ptm.pertemuan_ke}
-            </button>
-          </div>
-        `;
-        container.appendChild(card);
-      });
+            <div style="background: #fdfefe; border: 1px solid #e2e8f0; border-radius: var(--radius-sm); padding: 12px 14px; margin-top: 10px;">
+              <strong style="color: #1e3a8a; font-size: 12.5px; display: block; margin-bottom: 4px;">
+                📋 Instruksi Latihan Lapangan:
+              </strong>
+              <p style="font-size: 13px; color: var(--text-body); margin: 0; white-space: pre-line;">${escapeHtml(ptm.instruksi)}</p>
+            </div>
 
-      // Bind button events inside cards
-      document.querySelectorAll(".btn-submit-for-ptm").forEach(btn => {
-        btn.addEventListener("click", () => {
-          const ptmId = btn.getAttribute("data-id");
-          document.getElementById("subMeetingSelect").value = ptmId;
-          openModal();
+            <div class="meeting-tasks-box">
+              <div class="meeting-tasks-title">
+                <span>🎯 Ujian / Tugas SKU Penegak:</span>
+              </div>
+              <p style="font-size: 13px; font-weight: 600; color: #78350f; margin: 0;">${escapeHtml(ptm.tugas)}</p>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px;">
+              <a href="attendance.html" class="btn btn-light" style="text-decoration: none; font-size: 12.5px;">
+                📍 Presensi Pertemuan Ini
+              </a>
+              <button class="btn btn-primary btn-submit-for-ptm" data-id="${escapeHtml(ptm.id)}" style="font-size: 12.5px;">
+                📤 Kumpulkan Tugas Pertemuan ${escapeHtml(ptm.pertemuan_ke)}
+              </button>
+            </div>
+          `;
+          container.appendChild(card);
         });
-      });
+
+        // Bind button events inside cards
+        document.querySelectorAll(".btn-submit-for-ptm").forEach(btn => {
+          btn.addEventListener("click", () => {
+            const ptmId = btn.getAttribute("data-id");
+            const sel = document.getElementById("subMeetingSelect");
+            if (sel) sel.value = ptmId;
+            openModal();
+          });
+        });
+      } catch (err) {
+        console.error("Gagal memuat materi classroom:", err);
+        container.innerHTML = `<div class="card" style="padding: 20px; color: #b91c1c;">Terjadi kendala saat memuat daftar pertemuan. Silakan muat ulang halaman.</div>`;
+      }
     }
 
-    renderMeetingsList();
+    if (user) {
+      renderMeetingsList();
+    }
 
     // Modal Handling
     const modal = document.getElementById("submitTaskModal");
@@ -384,6 +394,10 @@
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
+      if (!user) {
+        window.location.href = "index.html";
+        return;
+      }
       const btnSave = document.getElementById("btnSaveSubmission");
       btnSave.disabled = true;
       btnSave.textContent = "Mengirim...";
@@ -428,50 +442,57 @@
     async function loadSubmissions() {
       const container = document.getElementById("submissionsListContainer");
       const badge = document.getElementById("totalSubmissionsBadge");
+      if (!container) return;
       container.innerHTML = "<p style='color: var(--muted); font-size: 13px;'>Memuat data tugas...</p>";
 
-      const list = await getSubmissions();
-      badge.textContent = `${list.length} Tugas Diserahkan`;
+      try {
+        const list = await getSubmissions();
+        if (badge) badge.textContent = `${list.length} Tugas Diserahkan`;
 
-      if (list.length === 0) {
-        container.innerHTML = `
-          <div class="card" style="text-align: center; padding: 32px 20px; color: var(--muted);">
-            <div style="font-size: 36px; margin-bottom: 8px;">📬</div>
-            <p style="font-size: 14px; margin: 0;">Belum ada tugas yang diserahkan oleh siswa.</p>
-            <small style="font-size: 12px;">Siswa dapat mengumpulkan tugas melalui tombol "Kumpulkan Tugas / SKU".</small>
-          </div>
-        `;
-        return;
+        if (list.length === 0) {
+          container.innerHTML = `
+            <div class="card" style="text-align: center; padding: 32px 20px; color: var(--muted);">
+              <div style="font-size: 36px; margin-bottom: 8px;">📬</div>
+              <p style="font-size: 14px; margin: 0;">Belum ada tugas yang diserahkan oleh siswa.</p>
+              <small style="font-size: 12px;">Siswa dapat mengumpulkan tugas melalui tombol "Kumpulkan Tugas / SKU".</small>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = "";
+        list.forEach(sub => {
+          const safeUrl = (sub.attachmentUrl && /^https?:\/\//i.test(sub.attachmentUrl)) ? sub.attachmentUrl : "";
+          const item = document.createElement("div");
+          item.className = "announcement-card";
+          item.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+              <div>
+                <strong style="font-size: 14px; color: var(--text-main);">${escapeHtml(sub.name)}</strong>
+                <span class="badge" style="background: #f1f5f9; color: #334155; margin-left: 6px; font-size: 11px;">${escapeHtml(sub.kelas)}</span>
+              </div>
+              <span class="badge" style="background: #dcfce7; color: #15803d; font-size: 11.5px; font-weight: 700;">
+                ✓ Diserahkan
+              </span>
+            </div>
+            <div style="font-size: 12px; color: var(--muted); margin-bottom: 8px;">
+              Pertemuan: <b>${escapeHtml((sub.meetingId || "-").toUpperCase())}</b> &bull; Waktu: ${sub.submittedAt ? new Date(sub.submittedAt).toLocaleString("id-ID") : "-"}
+            </div>
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: var(--radius-sm); padding: 10px 12px; font-size: 13px; color: var(--text-body); white-space: pre-wrap;">
+              ${escapeHtml(sub.answerText)}
+            </div>
+            ${safeUrl ? `
+              <div style="margin-top: 8px; font-size: 12px;">
+                🔗 Lampiran: <a href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(safeUrl)}</a>
+              </div>
+            ` : ''}
+          `;
+          container.appendChild(item);
+        });
+      } catch (err) {
+        console.error("Gagal memuat daftar pengumpulan tugas:", err);
+        container.innerHTML = `<div class="card" style="padding: 18px; color: #b91c1c;">Terjadi kendala memuat data tugas.</div>`;
       }
-
-      container.innerHTML = "";
-      list.forEach(sub => {
-        const item = document.createElement("div");
-        item.className = "announcement-card";
-        item.innerHTML = `
-          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
-            <div>
-              <strong style="font-size: 14px; color: var(--text-main);">${sub.name}</strong>
-              <span class="badge" style="background: #f1f5f9; color: #334155; margin-left: 6px; font-size: 11px;">${sub.kelas}</span>
-            </div>
-            <span class="badge" style="background: #dcfce7; color: #15803d; font-size: 11.5px; font-weight: 700;">
-              ✓ Diserahkan
-            </span>
-          </div>
-          <div style="font-size: 12px; color: var(--muted); margin-bottom: 8px;">
-            Pertemuan: <b>${sub.meetingId.toUpperCase()}</b> &bull; Waktu: ${new Date(sub.submittedAt).toLocaleString("id-ID")}
-          </div>
-          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: var(--radius-sm); padding: 10px 12px; font-size: 13px; color: var(--text-body); white-space: pre-wrap;">
-            ${sub.answerText}
-          </div>
-          ${sub.attachmentUrl ? `
-            <div style="margin-top: 8px; font-size: 12px;">
-              🔗 Lampiran: <a href="${sub.attachmentUrl}" target="_blank" rel="noopener">${sub.attachmentUrl}</a>
-            </div>
-          ` : ''}
-        `;
-        container.appendChild(item);
-      });
     }
   </script>
 </body>

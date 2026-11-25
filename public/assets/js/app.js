@@ -41,23 +41,85 @@ export async function fsTimeout(promise, timeoutMs = 1200) {
   }
 }
 
+/**
+ * Global browser safety guards & storage/HTML helpers to prevent unhandled UI crashes.
+ */
+if (typeof window !== "undefined" && !window.__pramukaErrorGuardsInstalled) {
+  window.__pramukaErrorGuardsInstalled = true;
+  window.addEventListener("unhandledrejection", (event) => {
+    console.warn("Async error tertangani otomatis:", event.reason?.message || event.reason);
+    event.preventDefault();
+  });
+}
+
+export function escapeHtml(str) {
+  if (str === null || str === undefined) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+export function safeLocalGet(key, fallback = null) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch (e) {
+    return fallback;
+  }
+}
+
+export function safeLocalSet(key, val) {
+  try {
+    localStorage.setItem(key, JSON.stringify(val));
+    return true;
+  } catch (e) {
+    console.warn(`Penyimpanan lokal (${key}) dilewati:`, e.message);
+    return false;
+  }
+}
+
+function mergeListWithFs(localList, fsList, getKey, storageKey, storeAsObject = false) {
+  const merged = [...localList];
+  fsList.forEach(item => {
+    const k = getKey(item);
+    const idx = merged.findIndex(m => getKey(m) === k);
+    if (idx >= 0) merged[idx] = { ...merged[idx], ...item };
+    else merged.push(item);
+  });
+  if (storageKey) {
+    if (storeAsObject) {
+      const obj = {};
+      merged.forEach(m => {
+        const k = getKey(m);
+        if (k) obj[k] = m;
+      });
+      safeLocalSet(storageKey, obj);
+    } else {
+      safeLocalSet(storageKey, merged);
+    }
+  }
+  return merged;
+}
+
 // --------------------------------------------------------------------------
 // 1. AUTH & SESSION MANAGEMENT
 // --------------------------------------------------------------------------
 export function getCurrentUser() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch (e) {
-    return null;
-  }
+  return safeLocalGet(STORAGE_KEY, null);
 }
 
 export function setCurrentUser(user) {
-  if (user) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
-  } else {
-    localStorage.removeItem(STORAGE_KEY);
+  try {
+    if (user) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+    } else {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  } catch (e) {
+    console.warn("Gagal memperbarui sesi lokal:", e.message);
   }
 }
 
@@ -94,7 +156,7 @@ export async function loginUser(identifier, password) {
   }
 
   // Verifikasi kata sandi (mendukung default 123456 & kata sandi kustom)
-  const customPasswords = JSON.parse(localStorage.getItem("pramuka_user_passwords") || "{}");
+  const customPasswords = safeLocalGet("pramuka_user_passwords", {});
   const expectedPass = customPasswords[normId] || "123456";
   if (rawPass !== expectedPass && rawPass !== "123456") {
     throw new Error("Kata sandi salah. Silakan periksa kembali kata sandi Anda.");
@@ -253,43 +315,33 @@ export async function submitAssignment(submission) {
   };
 
   // Simpan ke cache lokal instan
-  try {
-    const localSubs = JSON.parse(localStorage.getItem("pramuka_local_submissions") || "{}");
-    localSubs[subId] = data;
-    localStorage.setItem("pramuka_local_submissions", JSON.stringify(localSubs));
-  } catch (e) {}
+  const localSubs = safeLocalGet("pramuka_local_submissions", {});
+  localSubs[subId] = data;
+  safeLocalSet("pramuka_local_submissions", localSubs);
 
-  // Latar belakang Cloud Firestore
-  (async () => {
-    try {
-      const subRef = doc(db, "submissions", subId);
-      await fsTimeout(setDoc(subRef, { ...data, timestamp: serverTimestamp() }), 2500);
-    } catch (e) {
-      console.warn("Firestore tugas offline:", e.message);
-    }
-  })();
+  // Sinkronisasi ke Cloud Firestore
+  try {
+    const subRef = doc(db, "submissions", subId);
+    await fsTimeout(setDoc(subRef, { ...data, timestamp: serverTimestamp() }), 2500);
+  } catch (e) {
+    console.warn("Firestore tugas offline:", e.message);
+  }
 
   return data;
 }
 
 export async function getSubmissions(meetingId) {
-  let list = [];
-  try {
-    const localSubs = JSON.parse(localStorage.getItem("pramuka_local_submissions") || "{}");
-    list = Object.values(localSubs);
-    if (meetingId) list = list.filter(s => s.meetingId === meetingId);
-  } catch (e) {}
+  let list = Object.values(safeLocalGet("pramuka_local_submissions", {}));
+  if (meetingId) list = list.filter(s => s.meetingId === meetingId);
 
   try {
     const q = meetingId 
       ? query(collection(db, "submissions"), where("meetingId", "==", meetingId))
       : collection(db, "submissions");
-    const snap = await fsTimeout(getDocs(q), 1200);
+    const snap = await fsTimeout(getDocs(q), 1500);
     if (snap && !snap.empty) {
       const fsList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      fsList.forEach(item => {
-        if (!list.some(l => l.id === item.id)) list.push(item);
-      });
+      list = mergeListWithFs(list, fsList, item => item.id, meetingId ? null : "pramuka_local_submissions", true);
     }
   } catch (e) {
     // Offline / timeout
@@ -325,39 +377,35 @@ export async function saveAttendance(record) {
     updatedAt: new Date().toISOString()
   };
 
-  // 1. Simpan ke cache lokal instan
-  try {
-    const localAtt = JSON.parse(localStorage.getItem("pramuka_local_attendances") || "{}");
-    localAtt[docId] = payload;
-    localStorage.setItem("pramuka_local_attendances", JSON.stringify(localAtt));
-  } catch (e) {}
+  // 1. Simpan ke cache lokal instan (jika kuota penuh karena foto, simpan versi ringan tanpa foto)
+  const localAtt = safeLocalGet("pramuka_local_attendances", {});
+  localAtt[docId] = payload;
+  if (!safeLocalSet("pramuka_local_attendances", localAtt)) {
+    const { photo, ...lightPayload } = payload;
+    localAtt[docId] = lightPayload;
+    safeLocalSet("pramuka_local_attendances", localAtt);
+  }
 
-  // 2. Latar belakang Cloud Firestore
-  (async () => {
-    try {
-      const docRef = doc(db, "attendances", docId);
-      await fsTimeout(setDoc(docRef, { ...payload, timestamp: serverTimestamp() }, { merge: true }), 2500);
-    } catch (e) {
-      console.warn("Firestore absensi offline:", e.message);
-    }
-  })();
+  // 2. Sinkronisasi ke Cloud Firestore (awaited dengan timeout 2.5 detik agar andal sebelum redirect)
+  try {
+    const docRef = doc(db, "attendances", docId);
+    await fsTimeout(setDoc(docRef, { ...payload, timestamp: serverTimestamp() }, { merge: true }), 2500);
+  } catch (e) {
+    console.warn("Firestore absensi offline:", e.message);
+  }
 
   return payload;
 }
 
 export async function getAllAttendances() {
-  const localAtt = JSON.parse(localStorage.getItem("pramuka_local_attendances") || "{}");
-  const list = Object.values(localAtt);
+  const localAtt = safeLocalGet("pramuka_local_attendances", {});
+  let list = Object.values(localAtt);
 
   try {
-    const snap = await fsTimeout(getDocs(collection(db, "attendances")), 1200);
+    const snap = await fsTimeout(getDocs(collection(db, "attendances")), 1500);
     if (snap && !snap.empty) {
       const fsList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      fsList.forEach(item => {
-        if (!list.some(l => l.username === item.username && l.workDate === item.workDate)) {
-          list.push(item);
-        }
-      });
+      list = mergeListWithFs(list, fsList, item => `${item.username}_${item.workDate}`, null);
     }
   } catch (e) {
     console.warn("Menggunakan cache lokal absensi:", e.message);
@@ -994,29 +1042,30 @@ export async function saveExamResult(resultData) {
     completedAt: nowIso
   };
 
-  // 1. Simpan ke cache lokal
+  // 1. Simpan ke cache lokal aman
+  const allRes = safeLocalGet("pramuka_exam_results", {});
+  allRes[resId] = payload;
+  safeLocalSet("pramuka_exam_results", allRes);
+
+  // 2. Simpan ke Cloud Firestore secara andal (timeout 2.5 detik)
   try {
-    const allRes = JSON.parse(localStorage.getItem("pramuka_exam_results") || "{}");
-    allRes[resId] = payload;
-    localStorage.setItem("pramuka_exam_results", JSON.stringify(allRes));
+    const docRef = doc(db, "exam_results", resId);
+    await fsTimeout(setDoc(docRef, { ...payload, timestamp: serverTimestamp() }, { merge: true }), 2500);
   } catch (e) {
-    console.warn("Gagal simpan exam result lokal:", e);
+    console.warn("Firestore exam result offline / sync dilewati:", e.message);
   }
 
-  // 2. Simpan ke Cloud Firestore di latar belakang
-  (async () => {
-    try {
-      const docRef = doc(db, "exam_results", resId);
-      await fsTimeout(setDoc(docRef, { ...payload, timestamp: serverTimestamp() }, { merge: true }), 2500);
-    } catch (e) {
-      console.warn("Firestore exam result offline / sync dilewati:", e.message);
-    }
-  })();
-
-  // 3. Otomatis sinkronkan nilai ujian ini LANGSUNG sebagai Nilai Akhir rapor siswa!
+  // 3. Otomatis sinkronkan nilai ujian ini ke Nilai Akhir rapor siswa (tanpa menghapus absen manual jika ada)
   try {
-    const finalScore = Number(resultData.score);
-    const predikat = finalScore >= 85 ? "A" : (finalScore >= 75 ? "B" : (finalScore >= 65 ? "C" : "D"));
+    const quizScore = Number(resultData.score);
+    const localGrades = safeLocalGet("pramuka_local_grades", {});
+    const existing = localGrades[`grade_${resultData.username}`] || {};
+    const attRaw = (existing.kehadiranManual !== undefined && existing.kehadiranManual !== null && existing.kehadiranManual !== "")
+      ? existing.kehadiranManual
+      : existing.kehadiran;
+    const attVal = (attRaw !== undefined && attRaw !== null && attRaw !== "") ? Number(attRaw) : null;
+    const { finalScore, predikat } = computeFinalGrade(attVal, quizScore);
+
     await saveStudentGrade({
       username: resultData.username,
       name: resultData.name,
@@ -1024,9 +1073,11 @@ export async function saveExamResult(resultData) {
       gender: resultData.gender || "L",
       examId: resultData.examId,
       examTitle: resultData.examTitle,
-      nilaiKuis: finalScore,
-      finalScore: finalScore, // NILAI AKHIR DIAMBIL DARI NILAI KUIS YANG DIBUAT PELATIH!
-      predikat: predikat,
+      kehadiran: existing.kehadiran ?? null,
+      kehadiranManual: existing.kehadiranManual ?? null,
+      nilaiKuis: quizScore,
+      finalScore: finalScore !== "-" ? Number(finalScore) : quizScore,
+      predikat: predikat !== "-" ? predikat : (quizScore >= 85 ? "A" : (quizScore >= 75 ? "B" : (quizScore >= 65 ? "C" : "D"))),
       catatan: `Hasil Kuis CBT: ${resultData.score}/100 (${resultData.correctCount || 0}/${resultData.totalQuestions || 30} Benar) - ${predikat === 'A' || predikat === 'B' ? 'Tuntas KKM' : 'Perlu Remedial'}`
     });
   } catch (err) {
@@ -1041,10 +1092,15 @@ export async function syncAllGradesFromExam(examId) {
   const existingGrades = await getAllGrades();
   const targetResults = examId ? allResults.filter(r => r.examId === examId) : allResults;
   const synced = {};
+  const tasks = [];
+
   for (const res of targetResults) {
     const scoreVal = Number(res.score);
     const existing = existingGrades[`grade_${res.username}`] || {};
-    const attVal = existing.kehadiran !== undefined && existing.kehadiran !== null && existing.kehadiran !== "" ? Number(existing.kehadiran) : null;
+    const attRaw = (existing.kehadiranManual !== undefined && existing.kehadiranManual !== null && existing.kehadiranManual !== "")
+      ? existing.kehadiranManual
+      : existing.kehadiran;
+    const attVal = (attRaw !== undefined && attRaw !== null && attRaw !== "") ? Number(attRaw) : null;
     const { finalScore, predikat } = computeFinalGrade(attVal, scoreVal);
     const payload = {
       username: res.username,
@@ -1053,14 +1109,20 @@ export async function syncAllGradesFromExam(examId) {
       gender: res.gender || "L",
       examId: res.examId,
       examTitle: res.examTitle,
-      kehadiran: attVal,
+      kehadiran: existing.kehadiran ?? null,
+      kehadiranManual: existing.kehadiranManual ?? null,
       nilaiKuis: scoreVal,
       finalScore: finalScore,
       predikat: predikat,
       catatan: existing.catatan || `Kuis CBT: ${res.score}/100 (${res.correctCount || 0}/${res.totalQuestions || 30} Benar)`
     };
-    await saveStudentGrade(payload);
     synced[res.username] = payload;
+    tasks.push(() => saveStudentGrade(payload));
+  }
+
+  // Simpan secara paralel bertahap agar tidak memblokir UI meski banyak siswa
+  for (let i = 0; i < tasks.length; i += 10) {
+    await Promise.allSettled(tasks.slice(i, i + 10).map(fn => fn()));
   }
   return synced;
 }
@@ -1190,40 +1252,28 @@ export async function requestRemedial(reqData) {
     requestedAt: nowIso
   };
 
-  try {
-    const allReq = JSON.parse(localStorage.getItem("pramuka_remedial_requests") || "{}");
-    allReq[reqId] = payload;
-    localStorage.setItem("pramuka_remedial_requests", JSON.stringify(allReq));
-  } catch (e) {}
+  const allReq = safeLocalGet("pramuka_remedial_requests", {});
+  allReq[reqId] = payload;
+  safeLocalSet("pramuka_remedial_requests", allReq);
 
-  (async () => {
-    try {
-      const docRef = doc(db, "remedial_requests", reqId);
-      await fsTimeout(setDoc(docRef, { ...payload, timestamp: serverTimestamp() }, { merge: true }), 2500);
-    } catch (e) {
-      console.warn("Firestore remedial offline:", e.message);
-    }
-  })();
+  try {
+    const docRef = doc(db, "remedial_requests", reqId);
+    await fsTimeout(setDoc(docRef, { ...payload, timestamp: serverTimestamp() }, { merge: true }), 2500);
+  } catch (e) {
+    console.warn("Firestore remedial offline:", e.message);
+  }
 
   return payload;
 }
 
 export async function getAllRemedialRequests() {
-  let localList = [];
-  try {
-    const allReq = JSON.parse(localStorage.getItem("pramuka_remedial_requests") || "{}");
-    localList = Object.values(allReq);
-  } catch (e) {}
+  let localList = Object.values(safeLocalGet("pramuka_remedial_requests", {}));
 
   try {
-    const snap = await fsTimeout(getDocs(collection(db, "remedial_requests")), 1200);
+    const snap = await fsTimeout(getDocs(collection(db, "remedial_requests")), 1500);
     if (snap && !snap.empty) {
       const fsList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      const merged = [...localList];
-      fsList.forEach(f => {
-        if (!merged.some(m => m.id === f.id)) merged.push(f);
-      });
-      return merged;
+      return mergeListWithFs(localList, fsList, item => item.id, "pramuka_remedial_requests", true);
     }
   } catch (e) {
     // Offline / timeout
@@ -1240,20 +1290,16 @@ export async function approveRemedialRequest(reqId, trainerName) {
     approvedAt: nowIso
   };
 
-  try {
-    const allReq = JSON.parse(localStorage.getItem("pramuka_remedial_requests") || "{}");
-    if (allReq[reqId]) {
-      allReq[reqId] = { ...allReq[reqId], ...updateData };
-      localStorage.setItem("pramuka_remedial_requests", JSON.stringify(allReq));
-    }
-  } catch (e) {}
+  const allReq = safeLocalGet("pramuka_remedial_requests", {});
+  if (allReq[reqId]) {
+    allReq[reqId] = { ...allReq[reqId], ...updateData };
+    safeLocalSet("pramuka_remedial_requests", allReq);
+  }
 
-  (async () => {
-    try {
-      const docRef = doc(db, "remedial_requests", reqId);
-      await fsTimeout(setDoc(docRef, { ...updateData, updatedAt: serverTimestamp() }, { merge: true }), 2500);
-    } catch (e) {}
-  })();
+  try {
+    const docRef = doc(db, "remedial_requests", reqId);
+    await fsTimeout(setDoc(docRef, { ...updateData, updatedAt: serverTimestamp() }, { merge: true }), 2500);
+  } catch (e) {}
 
   return true;
 }
@@ -1267,39 +1313,37 @@ export async function rejectRemedialRequest(reqId, trainerName, note = "") {
     rejectedAt: nowIso
   };
 
-  try {
-    const allReq = JSON.parse(localStorage.getItem("pramuka_remedial_requests") || "{}");
-    if (allReq[reqId]) {
-      allReq[reqId] = { ...allReq[reqId], ...updateData };
-      localStorage.setItem("pramuka_remedial_requests", JSON.stringify(allReq));
-    }
-  } catch (e) {}
+  const allReq = safeLocalGet("pramuka_remedial_requests", {});
+  if (allReq[reqId]) {
+    allReq[reqId] = { ...allReq[reqId], ...updateData };
+    safeLocalSet("pramuka_remedial_requests", allReq);
+  }
 
-  (async () => {
-    try {
-      const docRef = doc(db, "remedial_requests", reqId);
-      await fsTimeout(setDoc(docRef, { ...updateData, updatedAt: serverTimestamp() }, { merge: true }), 2500);
-    } catch (e) {}
-  })();
+  try {
+    const docRef = doc(db, "remedial_requests", reqId);
+    await fsTimeout(setDoc(docRef, { ...updateData, updatedAt: serverTimestamp() }, { merge: true }), 2500);
+  } catch (e) {}
 
   return true;
 }
 
 export async function getStudentRemedialStatus(examId, username) {
   const reqId = `rem_${examId}_${username}`;
-  try {
-    const allReq = JSON.parse(localStorage.getItem("pramuka_remedial_requests") || "{}");
-    if (allReq[reqId]) return allReq[reqId];
-  } catch (e) {}
 
+  // Prioritaskan Cloud Firestore agar ACC/Tolak oleh pelatih langsung diterima di perangkat siswa!
   try {
-    const dSnap = await fsTimeout(getDoc(doc(db, "remedial_requests", reqId)), 1200);
+    const dSnap = await fsTimeout(getDoc(doc(db, "remedial_requests", reqId)), 1500);
     if (dSnap && dSnap.exists()) {
-      return dSnap.data();
+      const data = dSnap.data();
+      const allReq = safeLocalGet("pramuka_remedial_requests", {});
+      allReq[reqId] = data;
+      safeLocalSet("pramuka_remedial_requests", allReq);
+      return data;
     }
   } catch (e) {}
 
-  return null;
+  const allReq = safeLocalGet("pramuka_remedial_requests", {});
+  return allReq[reqId] || null;
 }
 
 export async function saveStudentGrade(gradeData) {
@@ -1309,12 +1353,10 @@ export async function saveStudentGrade(gradeData) {
     updatedAt: new Date().toISOString()
   };
 
-  // Simpan di cache lokal instan
-  const localGrades = JSON.parse(localStorage.getItem("pramuka_local_grades") || "{}");
+  const localGrades = safeLocalGet("pramuka_local_grades", {});
   localGrades[docId] = payload;
-  localStorage.setItem("pramuka_local_grades", JSON.stringify(localGrades));
+  safeLocalSet("pramuka_local_grades", localGrades);
 
-  // Simpan ke Firestore secara andal (timeout 2 detik)
   try {
     const docRef = doc(db, "grades", docId);
     await fsTimeout(setDoc(docRef, { ...payload, timestamp: serverTimestamp() }, { merge: true }), 2000);
@@ -1324,11 +1366,7 @@ export async function saveStudentGrade(gradeData) {
 }
 
 export async function getAllGrades() {
-  const map = {};
-  try {
-    const localGrades = JSON.parse(localStorage.getItem("pramuka_local_grades") || "{}");
-    Object.assign(map, localGrades);
-  } catch (e) {}
+  const map = { ...safeLocalGet("pramuka_local_grades", {}) };
 
   try {
     const snap = await fsTimeout(getDocs(collection(db, "grades")), 1500);
@@ -1336,9 +1374,7 @@ export async function getAllGrades() {
       snap.docs.forEach(d => {
         map[d.id] = { id: d.id, ...d.data() };
       });
-      try {
-        localStorage.setItem("pramuka_local_grades", JSON.stringify(map));
-      } catch (_) {}
+      safeLocalSet("pramuka_local_grades", map);
     }
   } catch (e) {
     console.warn("Gagal memuat nilai dari Firebase, membaca cache lokal:", e.message);
@@ -1380,7 +1416,8 @@ export function renderTopbar(activeTab = "beranda") {
   if (!topbar) return;
 
   const user = getCurrentUser();
-  const initials = user ? user.name.split(" ").slice(0, 2).map(p => p[0]).join("").toUpperCase() : "P";
+  const safeName = user && user.name ? String(user.name).trim() : "Peserta";
+  const initials = safeName ? safeName.split(/\s+/).slice(0, 2).map(p => p[0] || "").join("").toUpperCase() || "P" : "P";
 
   topbar.innerHTML = `
     <a href="index.html" class="brand" title="Beranda Pramuka MAN 4 Banjar">

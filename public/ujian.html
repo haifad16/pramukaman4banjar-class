@@ -744,27 +744,33 @@ KUNCI JAWABAN:
       getStudentRemedialStatus,
       extractQuestionAndOptions,
       updateExamDuration,
-      saveAndRegradeExam
-    } from "./assets/js/app.js?v=24";
+      saveAndRegradeExam,
+      escapeHtml,
+      safeLocalGet,
+      safeLocalSet
+    } from "./assets/js/app.js?v=25";
 
     const user = requireAuth();
-    if (user) {
-      renderTopbar("ujian");
-    }
 
     // Role check: HANYA PELATIH yang dapat mengupload soal ujian
-    const isPelatihOnly = user && (user.role === 'pelatih');
-    const canViewRecap = user && ['pelatih', 'pembina', 'admin'].includes(user.role);
+    const isPelatihOnly = !!(user && user.role === 'pelatih');
+    const canViewRecap = !!(user && ['pelatih', 'pembina', 'admin'].includes(user.role));
 
-    if (isPelatihOnly) {
-      document.getElementById("trainerActions").style.display = "block";
-      document.getElementById("remedialTrainerSection").style.display = "block";
-      loadTrainerRemedialSection();
-    }
+    if (user) {
+      renderTopbar("ujian");
+      if (isPelatihOnly) {
+        const trainerAct = document.getElementById("trainerActions");
+        const remTrainer = document.getElementById("remedialTrainerSection");
+        if (trainerAct) trainerAct.style.display = "block";
+        if (remTrainer) remTrainer.style.display = "block";
+        loadTrainerRemedialSection();
+      }
 
-    if (canViewRecap) {
-      document.getElementById("trainerRecapSection").style.display = "block";
-      loadTrainerRecap();
+      if (canViewRecap) {
+        const recapSec = document.getElementById("trainerRecapSection");
+        if (recapSec) recapSec.style.display = "block";
+        loadTrainerRecap();
+      }
     }
 
     let allExams = [];
@@ -773,24 +779,52 @@ KUNCI JAWABAN:
     let parsedData = null;
     let examTimeRemaining = 0;
     let examCountdownInterval = null;
+    let isSubmittingExam = false;
+    let isSystemDialogOpen = false;
+
+    function getDraftKey(examId) {
+      return (user && examId) ? `pramuka_exam_draft_${examId}_${user.username}` : null;
+    }
+
+    function saveDraftAnswers() {
+      const k = getDraftKey(currentExam?.id);
+      if (k) safeLocalSet(k, studentAnswers);
+    }
+
+    function clearDraftAnswers(examId) {
+      const k = getDraftKey(examId || currentExam?.id);
+      if (k) {
+        try { localStorage.removeItem(k); } catch (_) {}
+      }
+    }
 
     // Load available exams
     async function loadExamsList() {
-      allExams = await getExams();
-      const select = document.getElementById("examSelect");
-      select.innerHTML = "";
+      if (!user) return;
+      try {
+        allExams = await getExams();
+        const select = document.getElementById("examSelect");
+        if (!select) return;
+        select.innerHTML = "";
 
-      allExams.forEach(e => {
-        const opt = document.createElement("option");
-        opt.value = e.id;
-        opt.textContent = `${e.judul} (${e.questions ? e.questions.length : 0} Soal)`;
-        select.appendChild(opt);
-      });
+        allExams.forEach(e => {
+          const opt = document.createElement("option");
+          opt.value = e.id;
+          const qCount = Array.isArray(e.questions) ? e.questions.length : 0;
+          opt.textContent = `${e.judul || 'Ujian'} (${qCount} Soal)`;
+          select.appendChild(opt);
+        });
 
-      if (allExams.length > 0) {
-        selectExam(allExams[0].id);
-      } else {
-        document.getElementById("examMetaInfo").textContent = "Belum ada paket soal aktif.";
+        if (allExams.length > 0) {
+          await selectExam(allExams[0].id);
+        } else {
+          const metaEl = document.getElementById("examMetaInfo");
+          if (metaEl) metaEl.textContent = "Belum ada paket soal aktif.";
+        }
+      } catch (err) {
+        console.error("Gagal memuat daftar ujian:", err);
+        const metaEl = document.getElementById("examMetaInfo");
+        if (metaEl) metaEl.textContent = "Terjadi kendala saat memuat paket soal. Silakan muat ulang halaman.";
       }
     }
 
@@ -832,7 +866,12 @@ KUNCI JAWABAN:
           stopExamCountdown();
           if (timerDisplay) timerDisplay.textContent = "00:00";
           playExamTimeUpSound();
-          alert("⏱️ PERHATIAN: Waktu ujian CBT telah habis!\n\nSeluruh lembar jawaban Anda akan otomatis dikumpulkan dan dinilai ke sistem sekarang.");
+          isSystemDialogOpen = true;
+          try {
+            alert("⏱️ PERHATIAN: Waktu ujian CBT telah habis!\n\nSeluruh lembar jawaban Anda akan otomatis dikumpulkan dan dinilai ke sistem sekarang.");
+          } finally {
+            isSystemDialogOpen = false;
+          }
           finishExamCalculation(true);
         } else {
           updateTimerUI();
@@ -869,53 +908,69 @@ KUNCI JAWABAN:
     }
 
     async function selectExam(examId) {
+      if (!user) return;
       stopExamCountdown();
       currentExam = allExams.find(e => e.id === examId);
       studentAnswers = {};
 
       if (!currentExam) return;
+      const examQuestions = Array.isArray(currentExam.questions) ? currentExam.questions : [];
+      currentExam.questions = examQuestions;
 
-      document.getElementById("examMetaInfo").textContent = 
-        `Materi: ${currentExam.mapel || 'Pramuka'} • Total ${currentExam.questions.length} Butir Pilihan Ganda`;
+      const metaInfo = document.getElementById("examMetaInfo");
+      if (metaInfo) {
+        metaInfo.textContent = `Materi: ${currentExam.mapel || 'Pramuka'} • Total ${examQuestions.length} Butir Pilihan Ganda`;
+      }
 
       // Cek apakah siswa sudah pernah mengerjakan ujian ini sebelumnya
-      if (!isPelatihOnly && user && user.role === 'siswa') {
-        const results = await getExamResults();
-        const prevRes = results.find(r => r.examId === examId && r.username === user.username);
-        const remReq = await getStudentRemedialStatus(examId, user.username);
+      try {
+        if (!isPelatihOnly && user.role === 'siswa') {
+          const results = await getExamResults();
+          const prevRes = results.find(r => r.examId === examId && r.username === user.username);
+          const remReq = await getStudentRemedialStatus(examId, user.username);
 
-        // Jika sudah pernah mengerjakan dan BELUM di-ACC remedial oleh pelatih:
-        if (prevRes && (!remReq || remReq.status !== 'approved')) {
-          const startCard = document.getElementById("examStartCard");
-          if (startCard) startCard.style.display = "none";
-          document.getElementById("examWorkContainer").style.display = "none";
-          const resCard = document.getElementById("resultCard");
-          resCard.style.display = "block";
+          // Jika sudah pernah mengerjakan dan BELUM di-ACC remedial oleh pelatih:
+          if (prevRes && (!remReq || remReq.status !== 'approved')) {
+            const startCard = document.getElementById("examStartCard");
+            if (startCard) startCard.style.display = "none";
+            document.getElementById("examWorkContainer").style.display = "none";
+            const resCard = document.getElementById("resultCard");
+            resCard.style.display = "block";
 
-          document.getElementById("resExamTitle").textContent = currentExam.judul;
-          document.getElementById("resStudentInfo").textContent = `${user.name} • ${user.role.toUpperCase()} (${user.kelas || 'Gudep'})`;
-          document.getElementById("resScore").textContent = prevRes.score;
-          document.getElementById("resCorrectDetail").textContent = `${prevRes.correctCount || 0} dari ${prevRes.totalQuestions || currentExam.questions.length} Soal Benar (${prevRes.score}%)`;
+            document.getElementById("resExamTitle").textContent = currentExam.judul || "Ujian CBT";
+            document.getElementById("resStudentInfo").textContent = `${user.name} • ${user.role.toUpperCase()} (${user.kelas || 'Gudep'})`;
+            document.getElementById("resScore").textContent = prevRes.score ?? 0;
+            document.getElementById("resCorrectDetail").textContent = `${prevRes.correctCount || 0} dari ${prevRes.totalQuestions || examQuestions.length} Soal Benar (${prevRes.score ?? 0}%)`;
 
-          const badge = document.getElementById("resPredikatBadge");
-          const predikat = prevRes.score >= 85 ? "A" : (prevRes.score >= 75 ? "B" : (prevRes.score >= 65 ? "C" : "D"));
-          badge.className = `predikat-badge predikat-${predikat}`;
-          badge.textContent = predikat;
+            const badge = document.getElementById("resPredikatBadge");
+            const predikat = prevRes.score >= 85 ? "A" : (prevRes.score >= 75 ? "B" : (prevRes.score >= 65 ? "C" : "D"));
+            badge.className = `predikat-badge predikat-${predikat}`;
+            badge.textContent = predikat;
 
-          const circle = document.getElementById("scoreCircle");
-          if (circle) {
-            if (prevRes.score >= 85) circle.style.borderColor = "#059669";
-            else if (prevRes.score >= 75) circle.style.borderColor = "#2563eb";
-            else if (prevRes.score >= 65) circle.style.borderColor = "#d97706";
-            else circle.style.borderColor = "#dc2626";
+            const circle = document.getElementById("scoreCircle");
+            if (circle) {
+              if (prevRes.score >= 85) circle.style.borderColor = "#059669";
+              else if (prevRes.score >= 75) circle.style.borderColor = "#2563eb";
+              else if (prevRes.score >= 65) circle.style.borderColor = "#d97706";
+              else circle.style.borderColor = "#dc2626";
+            }
+
+            studentAnswers = prevRes.answers || {};
+            renderAnswerReview();
+
+            await updateStudentRemedialUI(prevRes.score);
+            return;
           }
-
-          studentAnswers = prevRes.answers || {};
-          renderAnswerReview();
-
-          await updateStudentRemedialUI(prevRes.score);
-          return;
         }
+      } catch (err) {
+        console.warn("Gagal memeriksa riwayat ujian sebelumnya:", err);
+      }
+
+      // Pulihkan draf jawaban tersimpan sementara (jika browser sempat ter-refresh saat ujian)
+      const draftKey = getDraftKey(examId);
+      const savedDraft = draftKey ? safeLocalGet(draftKey, null) : null;
+      if (savedDraft && typeof savedDraft === "object") {
+        studentAnswers = savedDraft;
       }
 
       document.getElementById("resultCard").style.display = "none";
@@ -925,11 +980,11 @@ KUNCI JAWABAN:
       const startCard = document.getElementById("examStartCard");
       if (startCard) {
         startCard.style.display = "block";
-        document.getElementById("startExamTitle").textContent = currentExam.judul;
+        document.getElementById("startExamTitle").textContent = currentExam.judul || "Ujian CBT";
         document.getElementById("startExamSubtitle").textContent = 
-          `Mata Pelajaran: ${currentExam.mapel || 'Kepramukaan'} • Total ${currentExam.questions.length} Butir Pilihan Ganda`;
+          `Mata Pelajaran: ${currentExam.mapel || 'Kepramukaan'} • Total ${examQuestions.length} Butir Pilihan Ganda`;
         document.getElementById("startStudentName").textContent = `${user ? user.name : 'Peserta'} (${user ? (user.kelas || 'Gudep') : ''})`;
-        document.getElementById("startQuestionCount").textContent = `${currentExam.questions.length} Butir Pilihan Ganda (A - D)`;
+        document.getElementById("startQuestionCount").textContent = `${examQuestions.length} Butir Pilihan Ganda (A - D)`;
         const durText = document.getElementById("startDurationText");
         if (durText) durText.textContent = `⏱️ ${currentExam.durasi || 60} Menit (Hitung Mundur)`;
         const btnEditDurQuick = document.getElementById("btnEditDurationQuick");
@@ -973,12 +1028,20 @@ KUNCI JAWABAN:
     // Render questions list
     function renderQuestions() {
       const container = document.getElementById("questionsList");
+      if (!container || !currentExam) return;
       container.innerHTML = "";
+      const questions = Array.isArray(currentExam.questions) ? currentExam.questions : [];
 
-      currentExam.questions.forEach((q, idx) => {
+      if (questions.length === 0) {
+        container.innerHTML = `<div class="card" style="padding: 24px; text-align: center; color: var(--muted);">Belum ada butir soal dalam paket ujian ini.</div>`;
+        return;
+      }
+
+      questions.forEach((q, idx) => {
         // Otomatis ekstrak dan pisahkan opsi A, B, C, D dari pertanyaan
         const parsedQ = extractQuestionAndOptions(q);
         const qid = parsedQ.id || (idx + 1);
+        const selectedOpt = (studentAnswers[qid] || "").toUpperCase();
 
         const card = document.createElement("div");
         card.className = "question-card";
@@ -992,9 +1055,9 @@ KUNCI JAWABAN:
         ].filter(o => o.text && o.text.trim());
 
         const optsHtml = opts.map(o => `
-          <div class="option-label" data-qid="${qid}" data-opt="${o.letter}">
+          <div class="option-label ${selectedOpt === o.letter ? 'selected' : ''}" data-qid="${escapeHtml(qid)}" data-opt="${o.letter}">
             <div class="option-letter">${o.letter}</div>
-            <div style="flex: 1; font-weight: 600;">${o.text}</div>
+            <div style="flex: 1; font-weight: 600;">${escapeHtml(o.text)}</div>
           </div>
         `).join("");
 
@@ -1009,7 +1072,7 @@ KUNCI JAWABAN:
           </div>
 
           <p style="font-size: 15px; font-weight: 700; line-height: 1.6; color: var(--text-main); margin: 0 0 16px;">
-            ${parsedQ.pertanyaan}
+            ${escapeHtml(parsedQ.pertanyaan)}
           </p>
 
           <div class="options-group">
@@ -1031,6 +1094,7 @@ KUNCI JAWABAN:
           lbl.classList.add("selected");
 
           studentAnswers[qid] = opt;
+          saveDraftAnswers();
         });
       });
 
@@ -1050,15 +1114,34 @@ KUNCI JAWABAN:
 
     // Finish & Calculate Score Immediately (Style PKBM Mandiri)
     async function finishExamCalculation(isAutoSubmit = false) {
-      if (!currentExam) return;
+      if (!currentExam || !user || isSubmittingExam) return;
 
-      const totalQ = currentExam.questions.length;
+      const questions = Array.isArray(currentExam.questions) ? currentExam.questions : [];
+      const totalQ = questions.length;
+      if (totalQ === 0) {
+        alert("Paket ujian ini tidak memiliki soal.");
+        return;
+      }
+
       const answeredCount = Object.keys(studentAnswers).length;
 
-      if (!isAutoSubmit && answeredCount < totalQ) {
-        if (!confirm(`Anda baru menjawab ${answeredCount} dari ${totalQ} soal. Yakin ingin mengumpulkan sekarang?`)) {
-          return;
-        }
+      if (!isAutoSubmit && answeredCount === 0) {
+        isSystemDialogOpen = true;
+        const okEmpty = confirm(`⚠️ PERHATIAN: Anda belum memilih SATU PUN jawaban (0 dari ${totalQ} soal).\n\nYakin ingin mengumpulkan lembar jawaban kosong?`);
+        isSystemDialogOpen = false;
+        if (!okEmpty) return;
+      } else if (!isAutoSubmit && answeredCount < totalQ) {
+        isSystemDialogOpen = true;
+        const okPartial = confirm(`Anda baru menjawab ${answeredCount} dari ${totalQ} soal. Yakin ingin mengumpulkan sekarang?`);
+        isSystemDialogOpen = false;
+        if (!okPartial) return;
+      }
+
+      isSubmittingExam = true;
+      const finishBtn = document.getElementById("btnFinishExam");
+      if (finishBtn) {
+        finishBtn.disabled = true;
+        finishBtn.textContent = "⏳ Menghitung & Menyimpan Nilai...";
       }
 
       // Hentikan Countdown Timer
@@ -1069,72 +1152,88 @@ KUNCI JAWABAN:
       const secBadgeFinish = document.getElementById("examSecurityBadge");
       if (secBadgeFinish) secBadgeFinish.style.display = "none";
 
-      // Hitung Jawaban Benar
-      let correct = 0;
-      currentExam.questions.forEach((q, idx) => {
-        const parsedQ = extractQuestionAndOptions(q);
-        const qid = parsedQ.id || (idx + 1);
-        const studentAns = (studentAnswers[qid] || "").toUpperCase();
-        const keyAns = (parsedQ.kunci || "").toUpperCase();
-        if (studentAns === keyAns) {
-          correct++;
+      try {
+        // Hitung Jawaban Benar
+        let correct = 0;
+        questions.forEach((q, idx) => {
+          const parsedQ = extractQuestionAndOptions(q);
+          const qid = parsedQ.id || (idx + 1);
+          const studentAns = (studentAnswers[qid] || "").toUpperCase();
+          const keyAns = (parsedQ.kunci || "").toUpperCase();
+          if (studentAns === keyAns) {
+            correct++;
+          }
+        });
+
+        const finalScore = totalQ > 0 ? Math.round((correct / totalQ) * 100) : 0;
+        let predikat = "D";
+        if (finalScore >= 85) predikat = "A";
+        else if (finalScore >= 75) predikat = "B";
+        else if (finalScore >= 65) predikat = "C";
+
+        // Tampilkan Hasil Asesmen Langsung
+        document.getElementById("examWorkContainer").style.display = "none";
+        const resCard = document.getElementById("resultCard");
+        resCard.style.display = "block";
+
+        document.getElementById("resExamTitle").textContent = currentExam.judul || "Ujian CBT";
+        document.getElementById("resStudentInfo").textContent = `${user.name} • ${user.role.toUpperCase()} (${user.kelas || 'Gudep'})`;
+        document.getElementById("resScore").textContent = finalScore;
+        document.getElementById("resCorrectDetail").textContent = `${correct} dari ${totalQ} Soal Benar (${finalScore}%)`;
+
+        const badge = document.getElementById("resPredikatBadge");
+        badge.className = `predikat-badge predikat-${predikat}`;
+        badge.textContent = predikat;
+
+        // Warna lingkaran skor
+        const circle = document.getElementById("scoreCircle");
+        if (circle) {
+          if (finalScore >= 85) circle.style.borderColor = "#059669";
+          else if (finalScore >= 75) circle.style.borderColor = "#2563eb";
+          else if (finalScore >= 65) circle.style.borderColor = "#d97706";
+          else circle.style.borderColor = "#dc2626";
         }
-      });
 
-      const finalScore = Math.round((correct / totalQ) * 100);
-      let predikat = "D";
-      if (finalScore >= 85) predikat = "A";
-      else if (finalScore >= 75) predikat = "B";
-      else if (finalScore >= 65) predikat = "C";
+        // Render Review Pembahasan
+        renderAnswerReview();
 
-      // Tampilkan Hasil Asesmen Langsung
-      document.getElementById("examWorkContainer").style.display = "none";
-      const resCard = document.getElementById("resultCard");
-      resCard.style.display = "block";
+        // Simpan Nilai ke Cloud Firestore
+        await saveExamResult({
+          examId: currentExam.id,
+          examTitle: currentExam.judul || "Ujian CBT",
+          username: user.username,
+          name: user.name,
+          kelas: user.kelas || "Gudep",
+          gender: user.gender || "L",
+          score: finalScore,
+          correctCount: correct,
+          totalQuestions: totalQ,
+          answers: studentAnswers
+        });
 
-      document.getElementById("resExamTitle").textContent = currentExam.judul;
-      document.getElementById("resStudentInfo").textContent = `${user.name} • ${user.role.toUpperCase()} (${user.kelas || 'Gudep'})`;
-      document.getElementById("resScore").textContent = finalScore;
-      document.getElementById("resCorrectDetail").textContent = `${correct} dari ${totalQ} Soal Benar (${finalScore}%)`;
+        // Hapus draf sementara setelah nilai berhasil disimpan
+        clearDraftAnswers(currentExam.id);
 
-      const badge = document.getElementById("resPredikatBadge");
-      badge.className = `predikat-badge predikat-${predikat}`;
-      badge.textContent = predikat;
+        // Update Remedial ACC UI
+        await updateStudentRemedialUI(finalScore);
 
-      // Warna lingkaran skor
-      const circle = document.getElementById("scoreCircle");
-      if (finalScore >= 85) circle.style.borderColor = "#059669";
-      else if (finalScore >= 75) circle.style.borderColor = "#2563eb";
-      else if (finalScore >= 65) circle.style.borderColor = "#d97706";
-      else circle.style.borderColor = "#dc2626";
+        resCard.scrollIntoView({ behavior: "smooth" });
 
-      // Render Review Pembahasan
-      renderAnswerReview();
-
-      // Simpan Nilai ke Cloud Firestore
-      await saveExamResult({
-        examId: currentExam.id,
-        examTitle: currentExam.judul,
-        username: user.username,
-        name: user.name,
-        kelas: user.kelas || "Gudep",
-        gender: user.gender || "L",
-        score: finalScore,
-        correctCount: correct,
-        totalQuestions: totalQ,
-        answers: studentAnswers
-      });
-
-      // Update Remedial ACC UI
-      await updateStudentRemedialUI(finalScore);
-
-      resCard.scrollIntoView({ behavior: "smooth" });
-
-      if (canViewRecap) {
-        loadTrainerRecap();
-      }
-      if (isPelatihOnly) {
-        loadTrainerRemedialSection();
+        if (canViewRecap) {
+          await loadTrainerRecap();
+        }
+        if (isPelatihOnly) {
+          await loadTrainerRemedialSection();
+        }
+      } catch (err) {
+        console.error("Gagal memproses pengumpulan ujian:", err);
+        alert("Terjadi kendala saat menyimpan nilai: " + err.message);
+      } finally {
+        isSubmittingExam = false;
+        if (finishBtn) {
+          finishBtn.disabled = false;
+          finishBtn.textContent = "✓ Selesai & Hitung Nilai Sekarang";
+        }
       }
     }
 
@@ -1148,6 +1247,7 @@ KUNCI JAWABAN:
       lastCompletedScore = score;
       const remArea = document.getElementById("remedialStatusArea");
       const retryBtn = document.getElementById("btnRetryExam");
+      if (!remArea || !retryBtn || !currentExam) return;
 
       if (!isPelatihOnly && user && user.role === 'siswa') {
         const remReq = await getStudentRemedialStatus(currentExam.id, user.username);
@@ -1164,7 +1264,8 @@ KUNCI JAWABAN:
               </button>
             </div>
           `;
-          document.getElementById("btnOpenRemedialReq").onclick = openRemedialModal;
+          const btnRemReq = document.getElementById("btnOpenRemedialReq");
+          if (btnRemReq) btnRemReq.onclick = openRemedialModal;
           retryBtn.disabled = true;
           retryBtn.style.opacity = "0.5";
           retryBtn.style.cursor = "not-allowed";
@@ -1173,7 +1274,7 @@ KUNCI JAWABAN:
         } else if (remReq.status === 'pending') {
           remArea.innerHTML = `
             <div style="padding: 10px 14px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; color: #1e40af; font-size: 12.5px;">
-              ⏳ <b>Permohonan Remedial Terkirim:</b> Sedang menunggu persetujuan (ACC) dari Pelatih Ekstrakurikuler (Alasan: "<i>${remReq.reason}</i>").
+              ⏳ <b>Permohonan Remedial Terkirim:</b> Sedang menunggu persetujuan (ACC) dari Pelatih Ekstrakurikuler (Alasan: "<i>${escapeHtml(remReq.reason)}</i>").
             </div>
           `;
           retryBtn.disabled = true;
@@ -1184,7 +1285,7 @@ KUNCI JAWABAN:
         } else if (remReq.status === 'approved') {
           remArea.innerHTML = `
             <div style="padding: 10px 14px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 6px; color: #047857; font-size: 12.5px;">
-              🎉 <b>Persetujuan (ACC) DIBERIKAN oleh ${remReq.approvedBy}!</b> Anda sekarang diizinkan untuk mengerjakan kuis remedial ini kembali sebanyak 1 kali.
+              🎉 <b>Persetujuan (ACC) DIBERIKAN oleh ${escapeHtml(remReq.approvedBy)}!</b> Anda sekarang diizinkan untuk mengerjakan kuis remedial ini kembali sebanyak 1 kali.
             </div>
           `;
           retryBtn.disabled = false;
@@ -1195,7 +1296,7 @@ KUNCI JAWABAN:
         } else if (remReq.status === 'rejected') {
           remArea.innerHTML = `
             <div style="padding: 10px 14px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; color: #b91c1c; font-size: 12px;">
-              ✕ <b>Permohonan Remedial Ditolak</b> oleh ${remReq.rejectedBy}: "<i>${remReq.rejectionNote || 'Nilai sudah mencukupi batas kelulusan.'}</i>".
+              ✕ <b>Permohonan Remedial Ditolak</b> oleh ${escapeHtml(remReq.rejectedBy)}: "<i>${escapeHtml(remReq.rejectionNote || 'Nilai sudah mencukupi batas kelulusan.')}</i>".
             </div>
           `;
           retryBtn.disabled = true;
@@ -1217,135 +1318,163 @@ KUNCI JAWABAN:
     // Modal Permohonan Remedial Siswa
     const remModal = document.getElementById("requestRemedialModal");
     function openRemedialModal() {
-      document.getElementById("remExamTitleInput").value = currentExam.judul;
+      if (!currentExam || !user || !remModal) return;
+      document.getElementById("remExamTitleInput").value = currentExam.judul || "Ujian CBT";
       document.getElementById("remStudentInfoInput").value = `${user.name} (${user.kelas || 'Gudep'}) - Skor Lama: ${lastCompletedScore}`;
       document.getElementById("remReasonInput").value = "";
       remModal.style.display = "flex";
     }
-    document.getElementById("btnCloseRemedialModal").onclick = () => { remModal.style.display = "none"; };
-    document.getElementById("btnCancelRemedialModal").onclick = () => { remModal.style.display = "none"; };
+    const btnCloseRem = document.getElementById("btnCloseRemedialModal");
+    if (btnCloseRem && remModal) btnCloseRem.onclick = () => { remModal.style.display = "none"; };
+    const btnCancelRem = document.getElementById("btnCancelRemedialModal");
+    if (btnCancelRem && remModal) btnCancelRem.onclick = () => { remModal.style.display = "none"; };
 
-    document.getElementById("remedialRequestForm").onsubmit = async (e) => {
-      e.preventDefault();
-      const reason = document.getElementById("remReasonInput").value.trim();
-      if (!reason) {
-        alert("Silakan tuliskan alasan permohonan remedial Anda.");
-        return;
-      }
+    const remForm = document.getElementById("remedialRequestForm");
+    if (remForm) {
+      remForm.onsubmit = async (e) => {
+        e.preventDefault();
+        if (!currentExam || !user) return;
+        const reason = document.getElementById("remReasonInput").value.trim();
+        if (!reason) {
+          alert("Silakan tuliskan alasan permohonan remedial Anda.");
+          return;
+        }
 
-      const btnSub = e.target.querySelector("button[type='submit']");
-      btnSub.disabled = true;
-      btnSub.textContent = "Mengirim...";
+        const btnSub = e.target.querySelector("button[type='submit']");
+        if (btnSub) {
+          btnSub.disabled = true;
+          btnSub.textContent = "Mengirim...";
+        }
 
-      await requestRemedial({
-        examId: currentExam.id,
-        examTitle: currentExam.judul,
-        username: user.username,
-        name: user.name,
-        kelas: user.kelas || "Gudep",
-        previousScore: lastCompletedScore,
-        reason: reason
-      });
+        try {
+          await requestRemedial({
+            examId: currentExam.id,
+            examTitle: currentExam.judul || "Ujian CBT",
+            username: user.username,
+            name: user.name,
+            kelas: user.kelas || "Gudep",
+            previousScore: lastCompletedScore,
+            reason: reason
+          });
 
-      alert("🎉 Permohonan remedial berhasil dikirimkan ke Pelatih Ekstrakurikuler! Silakan tunggu ACC dari Pelatih.");
-      remModal.style.display = "none";
-      btnSub.disabled = false;
-      btnSub.textContent = "Kirim Permohonan ke Pelatih";
-
-      await updateStudentRemedialUI(lastCompletedScore);
-    };
+          alert("🎉 Permohonan remedial berhasil dikirimkan ke Pelatih Ekstrakurikuler! Silakan tunggu ACC dari Pelatih.");
+          if (remModal) remModal.style.display = "none";
+          await updateStudentRemedialUI(lastCompletedScore);
+        } catch (err) {
+          console.error("Gagal mengirim permohonan remedial:", err);
+          alert("Gagal mengirim permohonan remedial: " + err.message);
+        } finally {
+          if (btnSub) {
+            btnSub.disabled = false;
+            btnSub.textContent = "Kirim Permohonan ke Pelatih";
+          }
+        }
+      };
+    }
 
     // Load Antrean Remedial untuk Pelatih
     async function loadTrainerRemedialSection() {
       const tbody = document.getElementById("remedialTrainerTableBody");
       const badge = document.getElementById("remedialPendingBadge");
-      const list = await getAllRemedialRequests();
+      if (!tbody || !badge) return;
+      try {
+        const list = await getAllRemedialRequests();
 
-      const pendingList = list.filter(r => r.status === 'pending');
-      badge.textContent = `${pendingList.length} Menunggu ACC`;
-      badge.style.background = pendingList.length > 0 ? "#fee2e2" : "#ecfdf5";
-      badge.style.color = pendingList.length > 0 ? "#b91c1c" : "#047857";
+        const pendingList = list.filter(r => r.status === 'pending');
+        badge.textContent = `${pendingList.length} Menunggu ACC`;
+        badge.style.background = pendingList.length > 0 ? "#fee2e2" : "#ecfdf5";
+        badge.style.color = pendingList.length > 0 ? "#b91c1c" : "#047857";
 
-      if (list.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--muted); padding: 18px;">Belum ada pengajuan remedial dari siswa.</td></tr>`;
-        return;
-      }
-
-      tbody.innerHTML = "";
-      list.forEach((r, idx) => {
-        const tr = document.createElement("tr");
-
-        let statusBadge = "";
-        let actionHtml = "";
-
-        if (r.status === 'pending') {
-          statusBadge = `<span class="badge" style="background: #fef3c7; color: #92400e; font-weight: 800;">⏳ Menunggu ACC</span>`;
-          actionHtml = `
-            <div style="display: flex; gap: 4px; justify-content: center;">
-              <button class="btn btn-primary btn-acc-req" data-id="${r.id}" style="padding: 5px 10px; font-size: 11px; font-weight: 700;">
-                ✓ ACC Ujian
-              </button>
-              <button class="btn btn-light btn-reject-req" data-id="${r.id}" style="padding: 5px 8px; font-size: 11px; color: #b91c1c;">
-                ✕ Tolak
-              </button>
-            </div>
-          `;
-        } else if (r.status === 'approved') {
-          statusBadge = `<span class="badge" style="background: #dcfce7; color: #15803d; font-weight: 800;">✓ Di-ACC (${r.approvedBy})</span>`;
-          actionHtml = `<span style="font-size: 11px; color: #059669; font-weight: 600;">Izin Aktif</span>`;
-        } else {
-          statusBadge = `<span class="badge" style="background: #f1f5f9; color: #475569; font-weight: 800;">✕ Ditolak</span>`;
-          actionHtml = `<span style="font-size: 11px; color: var(--muted);">${r.rejectionNote || 'Ditolak'}</span>`;
+        if (list.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--muted); padding: 18px;">Belum ada pengajuan remedial dari siswa.</td></tr>`;
+          return;
         }
 
-        tr.innerHTML = `
-          <td style="text-align: center;">${idx + 1}</td>
-          <td style="font-weight: 700;">${r.name}</td>
-          <td style="text-align: center;">${r.kelas}</td>
-          <td>${r.examTitle}</td>
-          <td style="text-align: center; font-weight: 800; color: #dc2626;">${r.previousScore}</td>
-          <td>
-            <div style="font-style: italic; color: #334155; font-size: 12px;">"${r.reason}"</div>
-            <div style="font-size: 10.5px; color: var(--muted); margin-top: 2px;">${new Date(r.requestedAt).toLocaleString("id-ID")}</div>
-          </td>
-          <td style="text-align: center;">${statusBadge}</td>
-          <td style="text-align: center;">${actionHtml}</td>
-        `;
-        tbody.appendChild(tr);
-      });
+        tbody.innerHTML = "";
+        list.forEach((r, idx) => {
+          const tr = document.createElement("tr");
 
-      // Bind ACC and Reject
-      tbody.querySelectorAll(".btn-acc-req").forEach(btn => {
-        btn.addEventListener("click", async () => {
-          const reqId = btn.getAttribute("data-id");
-          const target = list.find(r => r.id === reqId);
-          if (!confirm(`Apakah Anda yakin ingin menyetujui (ACC) ujian remedial untuk:\n\nNama Siswa: ${target.name} (${target.kelas})\nUjian: ${target.examTitle}\n\nSetelah disetujui, siswa dapat mengerjakan kuis kembali.`)) {
-            return;
+          let statusBadge = "";
+          let actionHtml = "";
+
+          if (r.status === 'pending') {
+            statusBadge = `<span class="badge" style="background: #fef3c7; color: #92400e; font-weight: 800;">⏳ Menunggu ACC</span>`;
+            actionHtml = `
+              <div style="display: flex; gap: 4px; justify-content: center;">
+                <button class="btn btn-primary btn-acc-req" data-id="${escapeHtml(r.id)}" style="padding: 5px 10px; font-size: 11px; font-weight: 700;">
+                  ✓ ACC Ujian
+                </button>
+                <button class="btn btn-light btn-reject-req" data-id="${escapeHtml(r.id)}" style="padding: 5px 8px; font-size: 11px; color: #b91c1c;">
+                  ✕ Tolak
+                </button>
+              </div>
+            `;
+          } else if (r.status === 'approved') {
+            statusBadge = `<span class="badge" style="background: #dcfce7; color: #15803d; font-weight: 800;">✓ Di-ACC (${escapeHtml(r.approvedBy)})</span>`;
+            actionHtml = `<span style="font-size: 11px; color: #059669; font-weight: 600;">Izin Aktif</span>`;
+          } else {
+            statusBadge = `<span class="badge" style="background: #f1f5f9; color: #475569; font-weight: 800;">✕ Ditolak</span>`;
+            actionHtml = `<span style="font-size: 11px; color: var(--muted);">${escapeHtml(r.rejectionNote || 'Ditolak')}</span>`;
           }
-          await approveRemedialRequest(reqId, user.name);
-          alert(`🎉 PERSETUJUAN BERHASIL!\nSiswa ${target.name} kini telah di-ACC untuk ujian remedial.`);
-          loadTrainerRemedialSection();
-        });
-      });
 
-      tbody.querySelectorAll(".btn-reject-req").forEach(btn => {
-        btn.addEventListener("click", async () => {
-          const reqId = btn.getAttribute("data-id");
-          const target = list.find(r => r.id === reqId);
-          const note = prompt(`Tuliskan alasan penolakan remedial untuk ${target.name}:`, "Nilai sudah mencukupi batas kelulusan KKM.");
-          if (note === null) return;
-          await rejectRemedialRequest(reqId, user.name, note);
-          alert(`Permohonan remedial siswa ${target.name} telah ditolak.`);
-          loadTrainerRemedialSection();
+          tr.innerHTML = `
+            <td style="text-align: center;">${idx + 1}</td>
+            <td style="font-weight: 700;">${escapeHtml(r.name)}</td>
+            <td style="text-align: center;">${escapeHtml(r.kelas)}</td>
+            <td>${escapeHtml(r.examTitle)}</td>
+            <td style="text-align: center; font-weight: 800; color: #dc2626;">${r.previousScore ?? 0}</td>
+            <td>
+              <div style="font-style: italic; color: #334155; font-size: 12px;">"${escapeHtml(r.reason)}"</div>
+              <div style="font-size: 10.5px; color: var(--muted); margin-top: 2px;">${r.requestedAt ? new Date(r.requestedAt).toLocaleString("id-ID") : '-'}</div>
+            </td>
+            <td style="text-align: center;">${statusBadge}</td>
+            <td style="text-align: center;">${actionHtml}</td>
+          `;
+          tbody.appendChild(tr);
         });
-      });
+
+        // Bind ACC and Reject
+        tbody.querySelectorAll(".btn-acc-req").forEach(btn => {
+          btn.addEventListener("click", async () => {
+            const reqId = btn.getAttribute("data-id");
+            const target = list.find(r => r.id === reqId);
+            if (!target) return;
+            if (!confirm(`Apakah Anda yakin ingin menyetujui (ACC) ujian remedial untuk:\n\nNama Siswa: ${target.name} (${target.kelas})\nUjian: ${target.examTitle}\n\nSetelah disetujui, siswa dapat mengerjakan kuis kembali.`)) {
+              return;
+            }
+            btn.disabled = true;
+            await approveRemedialRequest(reqId, user.name);
+            alert(`🎉 PERSETUJUAN BERHASIL!\nSiswa ${target.name} kini telah di-ACC untuk ujian remedial.`);
+            await loadTrainerRemedialSection();
+          });
+        });
+
+        tbody.querySelectorAll(".btn-reject-req").forEach(btn => {
+          btn.addEventListener("click", async () => {
+            const reqId = btn.getAttribute("data-id");
+            const target = list.find(r => r.id === reqId);
+            if (!target) return;
+            const note = prompt(`Tuliskan alasan penolakan remedial untuk ${target.name}:`, "Nilai sudah mencukupi batas kelulusan KKM.");
+            if (note === null) return;
+            btn.disabled = true;
+            await rejectRemedialRequest(reqId, user.name, note);
+            alert(`Permohonan remedial siswa ${target.name} telah ditolak.`);
+            await loadTrainerRemedialSection();
+          });
+        });
+      } catch (err) {
+        console.error("Gagal memuat antrean remedial:", err);
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: #b91c1c; padding: 14px;">Kendala saat memuat data remedial.</td></tr>`;
+      }
     }
 
     function renderAnswerReview() {
       const list = document.getElementById("reviewQuestionsList");
+      if (!list || !currentExam) return;
       list.innerHTML = "";
+      const questions = Array.isArray(currentExam.questions) ? currentExam.questions : [];
 
-      currentExam.questions.forEach((q, idx) => {
+      questions.forEach((q, idx) => {
         const parsedQ = extractQuestionAndOptions(q);
         const qid = parsedQ.id || (idx + 1);
         const studentAns = (studentAnswers[qid] || "-").toUpperCase();
@@ -1360,38 +1489,46 @@ KUNCI JAWABAN:
         item.style.border = isRight ? "1px solid #a7f3d0" : "1px solid #fecaca";
 
         item.innerHTML = `
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 8px;">
             <strong style="font-size: 13px; color: ${isRight ? '#065f46' : '#991b1b'};">
-              #${idx + 1}. ${parsedQ.pertanyaan}
+              #${idx + 1}. ${escapeHtml(parsedQ.pertanyaan)}
             </strong>
-            <span class="badge" style="background: ${isRight ? '#dcfce7' : '#fee2e2'}; color: ${isRight ? '#15803d' : '#b91c1c'}; font-weight: 800;">
+            <span class="badge" style="background: ${isRight ? '#dcfce7' : '#fee2e2'}; color: ${isRight ? '#15803d' : '#b91c1c'}; font-weight: 800; flex-shrink: 0;">
               ${isRight ? '✓ BENAR' : '✗ SALAH'}
             </span>
           </div>
           <div style="font-size: 12.5px; color: var(--text-body);">
-            Jawaban Anda: <b>${studentAns}</b> &bull; Kunci Jawaban: <b style="color: #059669;">${keyAns}</b>
+            Jawaban Anda: <b>${escapeHtml(studentAns)}</b> &bull; Kunci Jawaban: <b style="color: #059669;">${escapeHtml(keyAns)}</b>
           </div>
         `;
         list.appendChild(item);
       });
     }
 
-    document.getElementById("btnReviewAnswers").onclick = () => {
-      const rev = document.getElementById("answersReviewContainer");
-      rev.style.display = rev.style.display === "none" ? "block" : "none";
-    };
+    const btnReviewAns = document.getElementById("btnReviewAnswers");
+    if (btnReviewAns) {
+      btnReviewAns.onclick = () => {
+        const rev = document.getElementById("answersReviewContainer");
+        if (rev) rev.style.display = rev.style.display === "none" ? "block" : "none";
+      };
+    }
 
-    document.getElementById("btnRetryExam").onclick = () => {
-      document.getElementById("resultCard").style.display = "none";
-      const startCard = document.getElementById("examStartCard");
-      if (startCard) startCard.style.display = "none";
-      document.getElementById("examWorkContainer").style.display = "block";
-      studentAnswers = {};
-      renderQuestions();
-      const durasiMenit = (currentExam && currentExam.durasi) ? currentExam.durasi : 60;
-      startExamCountdown(durasiMenit);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    };
+    const btnRetryEx = document.getElementById("btnRetryExam");
+    if (btnRetryEx) {
+      btnRetryEx.onclick = () => {
+        if (!currentExam) return;
+        document.getElementById("resultCard").style.display = "none";
+        const startCard = document.getElementById("examStartCard");
+        if (startCard) startCard.style.display = "none";
+        document.getElementById("examWorkContainer").style.display = "block";
+        studentAnswers = {};
+        clearDraftAnswers(currentExam.id);
+        renderQuestions();
+        const durasiMenit = (currentExam && currentExam.durasi) ? currentExam.durasi : 60;
+        startExamCountdown(durasiMenit);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      };
+    }
 
     // Modal Kelola Kunci Jawaban & Hitung Ulang Nilai Siswa (Khusus Pelatih)
     const keysModal = document.getElementById("manageKeysModal");
@@ -1413,7 +1550,7 @@ KUNCI JAWABAN:
           <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 10px; background: #f8fafc;">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 8px;">
               <div style="font-size: 13px; font-weight: 700; color: #0f172a; flex: 1;">
-                #${idx + 1}. ${parsed.pertanyaan}
+                #${idx + 1}. ${escapeHtml(parsed.pertanyaan)}
               </div>
               <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
                 <label style="font-size: 11.5px; font-weight: 800; color: #047857;">Kunci:</label>
@@ -1426,10 +1563,10 @@ KUNCI JAWABAN:
               </div>
             </div>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px; font-size: 11.5px; color: #334155;">
-              <div><b>A.</b> ${parsed.opsi_a || '-'}</div>
-              <div><b>B.</b> ${parsed.opsi_b || '-'}</div>
-              <div><b>C.</b> ${parsed.opsi_c || '-'}</div>
-              <div><b>D.</b> ${parsed.opsi_d || '-'}</div>
+              <div><b>A.</b> ${escapeHtml(parsed.opsi_a || '-')}</div>
+              <div><b>B.</b> ${escapeHtml(parsed.opsi_b || '-')}</div>
+              <div><b>C.</b> ${escapeHtml(parsed.opsi_c || '-')}</div>
+              <div><b>D.</b> ${escapeHtml(parsed.opsi_d || '-')}</div>
             </div>
           </div>
         `;
@@ -1554,19 +1691,20 @@ KUNCI JAWABAN:
 
     // Modal Upload Pintar (Wewenang Khusus Pelatih)
     const modal = document.getElementById("uploadExamModal");
-    document.getElementById("btnOpenUploadModal").onclick = () => {
-      if (!user || user.role !== 'pelatih') {
-        alert("Akses Terbatas: Hanya Pelatih Ekstrakurikuler (M. Haifad Ilham & Aulia Ika Noorjannah) yang memiliki wewenang untuk mengunggah dan membuat soal ujian.");
-        return;
-      }
-      modal.style.display = "flex";
-    };
-    document.getElementById("btnCloseUploadModal").onclick = () => {
-      modal.style.display = "none";
-    };
-    document.getElementById("btnCancelUpload").onclick = () => {
-      modal.style.display = "none";
-    };
+    const btnOpenUpload = document.getElementById("btnOpenUploadModal");
+    if (btnOpenUpload && modal) {
+      btnOpenUpload.onclick = () => {
+        if (!user || user.role !== 'pelatih') {
+          alert("Akses Terbatas: Hanya Pelatih Ekstrakurikuler (M. Haifad Ilham & Aulia Ika Noorjannah) yang memiliki wewenang untuk mengunggah dan membuat soal ujian.");
+          return;
+        }
+        modal.style.display = "flex";
+      };
+    }
+    const btnCloseUp = document.getElementById("btnCloseUploadModal");
+    if (btnCloseUp && modal) btnCloseUp.onclick = () => { modal.style.display = "none"; };
+    const btnCancelUp = document.getElementById("btnCancelUpload");
+    if (btnCancelUp && modal) btnCancelUp.onclick = () => { modal.style.display = "none"; };
 
     // Contoh cepat naskah soal pramuka
     document.getElementById("btnFillSamplePramuka").onclick = () => {
@@ -1625,17 +1763,19 @@ KUNCI JAWABAN:
         `✓ ${parsedData.questions.length} Butir Soal Berhasil Dibagi & 100% Kunci Lengkap Terdeteksi!`;
 
       const summaryList = document.getElementById("parsedQuestionsSummary");
-      summaryList.innerHTML = parsedData.questions.map((q, idx) => `
-        <div style="padding: 6px 0; border-bottom: 1px dashed #cbd5e1; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
-          <div style="flex: 1; min-width: 0;">
-            <b>#${idx + 1}.</b> ${q.pertanyaan.substring(0, 75)}${q.pertanyaan.length > 75 ? '...' : ''}
-            <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
-              A: ${(q.opsi_a || '-').substring(0, 22)} | B: ${(q.opsi_b || '-').substring(0, 22)} | C: ${(q.opsi_c || '-').substring(0, 22)} | D: ${(q.opsi_d || '-').substring(0, 22)}
+      if (summaryList) {
+        summaryList.innerHTML = parsedData.questions.map((q, idx) => `
+          <div style="padding: 6px 0; border-bottom: 1px dashed #cbd5e1; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+            <div style="flex: 1; min-width: 0;">
+              <b>#${idx + 1}.</b> ${escapeHtml((q.pertanyaan || '').substring(0, 75))}${(q.pertanyaan || '').length > 75 ? '...' : ''}
+              <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
+                A: ${escapeHtml((q.opsi_a || '-').substring(0, 22))} | B: ${escapeHtml((q.opsi_b || '-').substring(0, 22))} | C: ${escapeHtml((q.opsi_c || '-').substring(0, 22))} | D: ${escapeHtml((q.opsi_d || '-').substring(0, 22))}
+              </div>
             </div>
+            <span class="badge" style="background: #dcfce7; color: #15803d; font-weight: 800; padding: 4px 10px;">Kunci: ${escapeHtml(q.kunci)}</span>
           </div>
-          <span class="badge" style="background: #dcfce7; color: #15803d; font-weight: 800; padding: 4px 10px;">Kunci: ${q.kunci}</span>
-        </div>
-      `).join("");
+        `).join("");
+      }
     };
 
     // Submit Publish Exam (Hanya Pelatih)
@@ -1696,31 +1836,40 @@ KUNCI JAWABAN:
     // Trainer recap
     async function loadTrainerRecap() {
       const tbody = document.getElementById("recapTableBody");
-      const results = await getExamResults();
+      if (!tbody) return;
+      try {
+        const results = await getExamResults();
 
-      if (results.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--muted); padding: 18px;">Belum ada siswa yang menyelesaikan kuis.</td></tr>`;
-        return;
+        if (results.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--muted); padding: 18px;">Belum ada siswa yang menyelesaikan kuis.</td></tr>`;
+          return;
+        }
+
+        const sorted = [...results].sort((a, b) => new Date(b.completedAt || 0) - new Date(a.completedAt || 0));
+        tbody.innerHTML = "";
+        sorted.forEach((r, idx) => {
+          const scoreVal = Number(r.score ?? 0);
+          const predikat = scoreVal >= 85 ? 'A' : (scoreVal >= 75 ? 'B' : (scoreVal >= 65 ? 'C' : 'D'));
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td style="text-align: center;">${idx + 1}</td>
+            <td style="font-weight: 700;">${escapeHtml(r.name)}</td>
+            <td style="text-align: center;">${escapeHtml(r.kelas)}</td>
+            <td>${escapeHtml(r.examTitle)}</td>
+            <td style="text-align: center; font-weight: 800; font-size: 14px; color: ${scoreVal >= 85 ? '#059669' : (scoreVal >= 75 ? '#2563eb' : '#dc2626')};">
+              ${scoreVal}
+            </td>
+            <td style="text-align: center;">
+              <span class="predikat-badge predikat-${predikat}">${predikat}</span>
+            </td>
+            <td style="font-size: 11px; color: var(--muted);">${r.completedAt ? new Date(r.completedAt).toLocaleString("id-ID") : '-'}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        console.error("Gagal memuat rekap nilai:", err);
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #b91c1c; padding: 14px;">Kendala memuat rekap nilai.</td></tr>`;
       }
-
-      tbody.innerHTML = "";
-      results.forEach((r, idx) => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td style="text-align: center;">${idx + 1}</td>
-          <td style="font-weight: 700;">${r.name}</td>
-          <td style="text-align: center;">${r.kelas}</td>
-          <td>${r.examTitle}</td>
-          <td style="text-align: center; font-weight: 800; font-size: 14px; color: ${r.score >= 85 ? '#059669' : '#2563eb'};">
-            ${r.score}
-          </td>
-          <td style="text-align: center;">
-            <span class="predikat-badge predikat-${r.score >= 85 ? 'A' : (r.score >= 75 ? 'B' : 'C')}">${r.score >= 85 ? 'A' : (r.score >= 75 ? 'B' : 'C')}</span>
-          </td>
-          <td style="font-size: 11px; color: var(--muted);">${new Date(r.completedAt || Date.now()).toLocaleString("id-ID")}</td>
-        `;
-        tbody.appendChild(tr);
-      });
     }
 
     // ======================================================================
@@ -1731,7 +1880,8 @@ KUNCI JAWABAN:
 
     function isStudentExamActive() {
       const work = document.getElementById("examWorkContainer");
-      return (
+      return !!(
+        !isSystemDialogOpen &&
         user && 
         user.role === 'siswa' && 
         work && 

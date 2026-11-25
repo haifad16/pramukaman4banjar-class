@@ -376,10 +376,11 @@
       getAllAttendances,
       getExams,
       getExamResults,
-      syncAllGradesFromExam
-    } from "./assets/js/app.js?v=24";
+      syncAllGradesFromExam,
+      escapeHtml
+    } from "./assets/js/app.js?v=25";
 
-    const user = requireAuth();
+    const user = requireAuth(['admin', 'pembina', 'pelatih']);
     if (user) {
       renderTopbar("grading");
     }
@@ -395,17 +396,24 @@
 
     // Inisialisasi Halaman
     async function init() {
-      // 1. Muat master ujian CBT
-      allExams = await getExams();
-      populateExamSelect();
+      if (!user) return;
+      try {
+        // 1. Muat master ujian CBT
+        allExams = await getExams();
+        populateExamSelect();
 
-      // 2. Muat hasil ujian & rekap nilai
-      gradesCache = await getAllGrades();
-      attendanceCache = await getAllAttendances();
-      examResults = await getExamResults();
+        // 2. Muat hasil ujian & rekap nilai
+        gradesCache = await getAllGrades();
+        attendanceCache = await getAllAttendances();
+        examResults = await getExamResults();
 
-      // 3. Render tabel utama
-      renderTable();
+        // 3. Render tabel utama
+        renderTable();
+      } catch (err) {
+        console.error("Gagal memuat halaman nilai akhir:", err);
+        const tb = document.getElementById("gradesTableBody");
+        if (tb) tb.innerHTML = `<tr><td colspan="11" style="text-align:center;color:#b91c1c;padding:20px;">Kendala saat memuat data nilai. Silakan muat ulang halaman.</td></tr>`;
+      }
     }
 
     // Isi Dropdown Pilihan Ujian CBT
@@ -536,7 +544,7 @@
 
           <!-- Catatan -->
           <td>
-            <input type="text" class="form-control input-catatan" value="${note}" placeholder="Catatan penilaian rapor..." data-user="${s.username}" style="width: 100%; padding: 6px 10px; font-size: 12px; border: 1px solid var(--line); border-radius: var(--radius-xs);">
+            <input type="text" class="form-control input-catatan" value="${escapeHtml(note)}" placeholder="Catatan penilaian rapor..." data-user="${escapeHtml(s.username)}" style="width: 100%; padding: 6px 10px; font-size: 12px; border: 1px solid var(--line); border-radius: var(--radius-xs);">
           </td>
 
           <!-- Aksi -->
@@ -669,26 +677,37 @@
 
     // Save All Button
     document.getElementById("btnSaveAllGrades").onclick = async () => {
+      if (!user) return;
       const btn = document.getElementById("btnSaveAllGrades");
       btn.disabled = true;
       btn.textContent = "⏳ Menyimpan Seluruh Nilai ke Firebase...";
 
-      const rows = tbody.querySelectorAll("tr");
-      for (const row of rows) {
-        const u = row.id.replace("row_", "");
-        await saveRow(u, null);
-      }
+      try {
+        const rows = Array.from(tbody.querySelectorAll("tr"));
+        for (let i = 0; i < rows.length; i += 12) {
+          const chunk = rows.slice(i, i + 12);
+          await Promise.allSettled(chunk.map(row => saveRow(row.id.replace("row_", ""), null)));
+        }
 
-      btn.disabled = false;
-      btn.textContent = "✓ Semua Nilai Berhasil Disimpan!";
-      setTimeout(() => { btn.textContent = "💾 Simpan Semua Nilai ke Firebase"; }, 2000);
-      alert("🎉 Seluruh nilai akhir semester berhasil disimpan ke Cloud Firestore & LocalStorage!");
+        btn.textContent = "✓ Semua Nilai Berhasil Disimpan!";
+        setTimeout(() => { btn.textContent = "💾 Simpan Semua Nilai ke Firebase"; }, 2000);
+        alert("🎉 Seluruh nilai akhir semester berhasil disimpan ke Cloud Firestore & LocalStorage!");
+      } catch (err) {
+        alert("Gagal menyimpan seluruh nilai: " + err.message);
+        btn.textContent = "💾 Simpan Semua Nilai ke Firebase";
+      } finally {
+        btn.disabled = false;
+      }
     };
 
     classFilter.onchange = renderTable;
 
     // Excel Export via SheetJS
     document.getElementById("btnExportExcel").onclick = () => {
+      if (typeof XLSX === "undefined") {
+        alert("Fitur export Excel belum siap (periksa koneksi internet Anda lalu muat ulang halaman).");
+        return;
+      }
       const wb = XLSX.utils.book_new();
       const exportData = [];
 

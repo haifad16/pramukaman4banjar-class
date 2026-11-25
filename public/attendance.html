@@ -212,7 +212,7 @@
       OFFICE_COORDS, 
       calculateDistance,
       saveAttendance 
-    } from "./assets/js/app.js?v=24";
+    } from "./assets/js/app.js?v=25";
 
     const user = requireAuth();
     if (user) {
@@ -299,14 +299,22 @@
       }
     });
 
-    document.getElementById("btnCheckLocation").onclick = readGps;
-    readGps();
+    const btnCheckLoc = document.getElementById("btnCheckLocation");
+    if (btnCheckLoc) btnCheckLoc.onclick = readGps;
+    if (user) {
+      readGps();
+    }
 
     // -----------------------------------------------------------
     // 2. Camera & Photo Capture
     // -----------------------------------------------------------
     btnStartCamera.onclick = async () => {
       if (!state.stream) {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          faceStatus.style.color = "#b91c1c";
+          faceStatus.textContent = "Browser ini membatasi akses kamera (buka lewat Chrome/Safari menggunakan HTTPS, bukan browser internal aplikasi).";
+          return;
+        }
         try {
           state.stream = await navigator.mediaDevices.getUserMedia({
             video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
@@ -317,13 +325,15 @@
           btnStartCamera.textContent = "📸 Ambil Foto Wajah Sekarang";
           faceStatus.textContent = "Posisikan wajah Anda tegak di depan kamera...";
         } catch (e) {
-          faceStatus.textContent = "Kamera tidak dapat diakses: " + e.message;
+          faceStatus.style.color = "#b91c1c";
+          faceStatus.textContent = "Kamera tidak dapat diakses: " + (e.message || "Izin kamera ditolak");
         }
       } else {
         // Capture photo
         photoCanvas.width = video.videoWidth || 640;
         photoCanvas.height = video.videoHeight || 480;
         const ctx = photoCanvas.getContext("2d");
+        if (!ctx) return;
         ctx.drawImage(video, 0, 0, photoCanvas.width, photoCanvas.height);
         state.photoBase64 = photoCanvas.toDataURL("image/jpeg", 0.75);
         state.photoTaken = true;
@@ -357,10 +367,10 @@
 
     function getPos(e) {
       const rect = sigCanvas.getBoundingClientRect();
-      const scaleX = sigCanvas.width / rect.width;
-      const scaleY = sigCanvas.height / rect.height;
-      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      const scaleX = sigCanvas.width / (rect.width || sigCanvas.width);
+      const scaleY = sigCanvas.height / (rect.height || sigCanvas.height);
+      const clientX = (e.touches && e.touches[0]) ? e.touches[0].clientX : e.clientX;
+      const clientY = (e.touches && e.touches[0]) ? e.touches[0].clientY : e.clientY;
       return {
         x: (clientX - rect.left) * scaleX,
         y: (clientY - rect.top) * scaleY
@@ -423,6 +433,10 @@
     }
 
     btnSubmit.onclick = async () => {
+      if (!user) {
+        window.location.href = "index.html";
+        return;
+      }
       if (!state.locationOK || !state.photoTaken || !state.hasSignature) {
         alert("Lengkapi semua 3 langkah terlebih dahulu.");
         return;

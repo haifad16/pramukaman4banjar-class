@@ -254,16 +254,20 @@
 
   <script type="module">
     import { PRAMUKA_SEED_DATA } from "./assets/js/pramuka-seed-data.js?v=2";
-    import { getAllAttendances } from "./assets/js/app.js?v=24";
+    import { getAllAttendances, escapeHtml } from "./assets/js/app.js?v=25";
 
     const classes = ["X-PI", "X-PA", "XI-PI", "XI-PA", "XII-PI", "XII-PA"];
     let attendanceMap = {};
 
     async function loadData() {
-      const attList = await getAllAttendances();
-      attList.forEach(a => {
-        attendanceMap[a.username] = a;
-      });
+      try {
+        const attList = await getAllAttendances();
+        attList.forEach(a => {
+          attendanceMap[a.username] = a;
+        });
+      } catch (err) {
+        console.warn("Gagal memuat presensi tambahan, menampilkan daftar default:", err);
+      }
       renderStudentPages();
     }
 
@@ -373,6 +377,10 @@
 
     // Excel Export
     window.exportToExcel = function() {
+      if (typeof XLSX === "undefined") {
+        alert("Library Export Excel sedang tidak tersedia (cek koneksi internet Anda dan muat ulang halaman).");
+        return;
+      }
       const wb = XLSX.utils.book_new();
       const val = docSelector.value;
       const targetClasses = (val === "ALL" || val === "PELATIH") ? classes : [val];
