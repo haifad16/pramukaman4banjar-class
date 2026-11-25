@@ -216,6 +216,30 @@
 
       </div>
 
+      <!-- Card Hasil Nilai Siswa (Khusus Akun Siswa) -->
+      <div id="studentScoreCard" class="card border-0 shadow-sm p-3 mt-4" style="display: none; background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 100%); border: 1.5px solid #bfdbfe !important;">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+          <div class="d-flex align-items-center gap-3">
+            <div style="width: 56px; height: 56px; border-radius: 50%; background: #fff; border: 3px solid #2563eb; display: flex; flex-direction: column; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 2px 8px rgba(37,99,235,0.15);">
+              <span id="dashStudentScoreVal" style="font-size: 20px; font-weight: 900; color: #1e3a8a; line-height: 1;">-</span>
+              <span style="font-size: 9px; font-weight: 700; color: #64748b;">NILAI</span>
+            </div>
+            <div>
+              <span class="badge bg-primary-subtle text-primary-emphasis border border-primary-subtle mb-1" id="dashStudentScoreBadge">
+                🏆 Hasil Evaluasi &amp; Kuis CBT Saya
+              </span>
+              <h3 class="h6 fw-bold mb-1 text-dark" id="dashStudentExamTitle">Memuat hasil nilai...</h3>
+              <p class="small text-muted mb-0" id="dashStudentScoreDetail">Memeriksa riwayat pengerjaan CBT &amp; nilai rapor...</p>
+            </div>
+          </div>
+          <div class="d-flex gap-2 flex-wrap">
+            <a href="ujian.html" class="btn btn-primary btn-sm fw-bold px-3 py-2 text-decoration-none" id="dashStudentExamBtn">
+              📝 Lihat Rincian &amp; Pembahasan
+            </a>
+          </div>
+        </div>
+      </div>
+
       <!-- Feature Navigation Cards (Bootstrap 5 Grid) -->
       <div class="mt-4">
         <h3 class="h6 fw-bold text-dark mb-3">
@@ -310,7 +334,9 @@
       renderTopbar, 
       startLiveClock,
       syncMasterDataToFirestore,
-      getAllAttendances
+      getAllAttendances,
+      getExamResults,
+      getAllGrades
     } from "./assets/js/app.js?v=25";
 
     // Setup autocomplete datalist
@@ -466,6 +492,65 @@
           }
         } catch (attErr) {
           console.warn("Gagal memeriksa presensi hari ini:", attErr);
+        }
+
+        // Tampilkan kartu Hasil Nilai Siswa di Beranda & sesuaikan kartu navigasi Rapor
+        const scoreCard = document.getElementById("studentScoreCard");
+        const cardGradingNav = document.getElementById("cardGradingNav");
+        if (user.role === "siswa") {
+          if (cardGradingNav && cardGradingNav.parentElement) {
+            cardGradingNav.parentElement.style.display = "none";
+          }
+          if (scoreCard) {
+            scoreCard.style.display = "block";
+            try {
+              const [examResList, gradesMap] = await Promise.all([getExamResults(), getAllGrades()]);
+              const myResults = examResList
+                .filter(r => r.username === user.username && r.answers && Object.keys(r.answers).length > 0)
+                .sort((a, b) => Number(b.score || 0) - Number(a.score || 0));
+              const myGrade = gradesMap[`grade_${user.username}`];
+
+              const valEl = document.getElementById("dashStudentScoreVal");
+              const titleEl = document.getElementById("dashStudentExamTitle");
+              const detailEl = document.getElementById("dashStudentScoreDetail");
+              const badgeEl = document.getElementById("dashStudentScoreBadge");
+              const btnEl = document.getElementById("dashStudentExamBtn");
+
+              if (myResults.length > 0) {
+                const top = myResults[0];
+                const scoreNum = Number(top.score ?? 0);
+                const pred = scoreNum >= 85 ? "A" : (scoreNum >= 75 ? "B" : (scoreNum >= 65 ? "C" : "D"));
+                if (valEl) {
+                  valEl.textContent = scoreNum;
+                  valEl.parentElement.style.borderColor = scoreNum >= 85 ? "#059669" : (scoreNum >= 75 ? "#2563eb" : "#d97706");
+                }
+                if (badgeEl) badgeEl.textContent = `🏆 Predikat ${pred} • ${scoreNum >= 75 ? "Tuntas KKM" : "Perlu Perbaikan"}`;
+                if (titleEl) titleEl.textContent = `${top.examTitle || "Ujian Semester 1"} (${top.correctCount ?? 0}/${top.totalQuestions ?? 30} Benar)`;
+                const raporNote = (myGrade && myGrade.finalScore !== undefined)
+                  ? `Nilai Rapor Terdata: ${myGrade.finalScore} (${myGrade.predikat || pred})`
+                  : "Tersimpan otomatis di Cloud Firestore";
+                if (detailEl) detailEl.textContent = `${raporNote} • Anda tidak perlu mengerjakan ulang.`;
+                if (btnEl) btnEl.textContent = "📝 Lihat Nilai & Pembahasan";
+              } else if (myGrade && myGrade.nilaiKuis !== null && myGrade.nilaiKuis !== undefined) {
+                const scoreNum = Number(myGrade.nilaiKuis);
+                if (valEl) valEl.textContent = scoreNum;
+                if (titleEl) titleEl.textContent = `${myGrade.examTitle || "Ujian Semester 1"}`;
+                if (detailEl) detailEl.textContent = myGrade.catatan || `Nilai Rapor: ${myGrade.finalScore}`;
+              } else {
+                if (valEl) valEl.textContent = "-";
+                if (titleEl) titleEl.textContent = "Belum Mengikuti Kuis CBT";
+                if (detailEl) detailEl.textContent = "Silakan klik tombol di samping untuk mengerjakan Kuis CBT Pramuka.";
+                if (btnEl) btnEl.textContent = "▶ Mulai Kuis CBT Sekarang";
+              }
+            } catch (scoreErr) {
+              console.warn("Gagal memuat ringkasan nilai siswa:", scoreErr);
+            }
+          }
+        } else {
+          if (scoreCard) scoreCard.style.display = "none";
+          if (cardGradingNav && cardGradingNav.parentElement) {
+            cardGradingNav.parentElement.style.display = "block";
+          }
         }
 
         // Live Clock

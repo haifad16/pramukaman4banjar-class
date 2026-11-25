@@ -798,7 +798,7 @@ KUNCI JAWABAN:
       }
     }
 
-    // Load available exams
+    // Load available exams (utamakan paket yang sudah dikerjakan siswa agar nilainya langsung tampil!)
     async function loadExamsList() {
       if (!user) return;
       try {
@@ -807,16 +807,36 @@ KUNCI JAWABAN:
         if (!select) return;
         select.innerHTML = "";
 
+        let myResults = [];
+        if (!isPelatihOnly && user.role === 'siswa') {
+          try {
+            const allRes = await getExamResults();
+            myResults = allRes.filter(r => r.username === user.username);
+          } catch (_) {}
+        }
+
         allExams.forEach(e => {
           const opt = document.createElement("option");
           opt.value = e.id;
           const qCount = Array.isArray(e.questions) ? e.questions.length : 0;
-          opt.textContent = `${e.judul || 'Ujian'} (${qCount} Soal)`;
+          const doneRes = myResults.find(r => r.examId === e.id && r.answers && Object.keys(r.answers).length > 0);
+          opt.textContent = doneRes
+            ? `✓ [Nilai: ${doneRes.score}] ${e.judul || 'Ujian'} (${qCount} Soal)`
+            : `${e.judul || 'Ujian'} (${qCount} Soal)`;
           select.appendChild(opt);
         });
 
         if (allExams.length > 0) {
-          await selectExam(allExams[0].id);
+          // Jika siswa sudah mengerjakan salah satu paket, pilih paket yang sudah selesai (skor tertinggi) terlebih dahulu
+          let defaultExamId = allExams[0].id;
+          const completedResults = myResults
+            .filter(r => r.answers && Object.keys(r.answers).length > 0 && allExams.some(e => e.id === r.examId))
+            .sort((a, b) => Number(b.score || 0) - Number(a.score || 0));
+          if (completedResults.length > 0) {
+            defaultExamId = completedResults[0].examId;
+            select.value = defaultExamId;
+          }
+          await selectExam(defaultExamId);
         } else {
           const metaEl = document.getElementById("examMetaInfo");
           if (metaEl) metaEl.textContent = "Belum ada paket soal aktif.";
@@ -1213,6 +1233,11 @@ KUNCI JAWABAN:
 
         // Hapus draf sementara setelah nilai berhasil disimpan
         clearDraftAnswers(currentExam.id);
+
+        const selOpt = document.querySelector(`#examSelect option[value="${currentExam.id}"]`);
+        if (selOpt) {
+          selOpt.textContent = `✓ [Nilai: ${finalScore}] ${currentExam.judul || 'Ujian'} (${totalQ} Soal)`;
+        }
 
         // Update Remedial ACC UI
         await updateStudentRemedialUI(finalScore);
